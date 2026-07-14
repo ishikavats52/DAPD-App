@@ -39,3 +39,10 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Backend secrets and local DB
+backend/.env
+backend/dynamodb_local.zip
+backend/dynamodb-local/
+backend/shared-local-instance.db
+backend/uploads/
