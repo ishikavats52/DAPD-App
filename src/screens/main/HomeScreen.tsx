@@ -94,18 +94,32 @@ const HomeScreen = ({ navigation }: Props) => {
       <View style={styles.content}>
         <View style={styles.userInfoSection}>
           <View style={styles.badgesRow}>
-            <View style={styles.badgeAdmin}><Text style={styles.badgeAdminText}>Admin</Text></View>
+            <View style={styles.badgeAdmin}>
+              <Text style={styles.badgeAdminText}>
+                {user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Admin'}
+              </Text>
+            </View>
             <View style={styles.badgeDapd}><Text style={styles.badgeDapdText}>DAPD</Text></View>
           </View>
           <Text style={styles.greetingTitle}>Hi, {user?.name?.split(' ')[0] || 'User'}</Text>
           <Text style={styles.greetingSubtitle}>Tap a card for full details. Search by tag or name.</Text>
+
+          {user?.role === 'superadmin' && (
+            <TouchableOpacity 
+              style={styles.auditLogCard} 
+              onPress={() => navigation.navigate('AuditLog')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.auditLogText}>A  Audit Log</Text>
+              <Text style={styles.auditLogChevron}>›</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={styles.dividerContainer}>
           <View style={styles.dividerLine} />
           <Text style={styles.dividerText}>ARTICLES</Text>
           <View style={styles.dividerLine} /> 
-          
         </View>
 
         {loading ? (
@@ -201,6 +215,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.textSecondary,
     marginBottom: 16,
+  },
+  auditLogCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    padding: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  auditLogText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1C2942',
+  },
+  auditLogChevron: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1C2942',
   },
   dividerContainer: {
     flexDirection: 'row',

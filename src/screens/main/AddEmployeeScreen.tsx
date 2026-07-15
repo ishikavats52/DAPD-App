@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import { Text, TextInput, Button, Appbar, Menu } from 'react-native-paper';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, KeyboardAvoidingView, Platform, Modal, FlatList } from 'react-native';
+import { Text, TextInput, Button, Appbar, Menu, Divider } from 'react-native-paper';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '../../navigation/MainTabNavigator';
 import { COLORS } from '../../theme';
@@ -12,16 +12,41 @@ type Props = {
 };
 
 const AddEmployeeScreen = ({ navigation }: Props) => {
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const [menuVisible, setMenuVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  
+  const [role, setRole] = useState<'Employee' | 'Admin'>('Employee');
+  const [modalVisible, setModalVisible] = useState(false);
+  const [admins, setAdmins] = useState<any[]>([]);
+  const [assignedAdminId, setAssignedAdminId] = useState('');
+  const [assignedAdminName, setAssignedAdminName] = useState('');
 
   const [formData, setFormData] = useState({
     name: '',
     designation: '',
     phone: '',
     email: '',
+    officeName: '',
+    address: '',
+    location: '',
+    state: '',
+    pincode: '',
   });
+
+  useEffect(() => {
+    if (user?.role === 'superadmin') {
+      const fetchAdmins = async () => {
+        try {
+          const response = await apiClient.get('/users/admins');
+          setAdmins(response.data.data || []);
+        } catch (error) {
+          console.error('Failed to fetch admins:', error);
+        }
+      };
+      fetchAdmins();
+    }
+  }, [user]);
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -29,35 +54,50 @@ const AddEmployeeScreen = ({ navigation }: Props) => {
 
   const handleCreate = async () => {
     if (!formData.name || !formData.designation || !formData.phone || !formData.email) {
-      Alert.alert('Error', 'Please fill in all required fields.');
+      Alert.alert('Error', 'Please fill in all required basic fields.');
       return;
     }
 
     try {
       setLoading(true);
-      await apiClient.post('/users/employees', formData);
-      Alert.alert('Success', 'Employee created successfully. A temporary password has been emailed to them.', [
+      if (role === 'Employee') {
+        const payload = {
+          name: formData.name,
+          designation: formData.designation,
+          phone: formData.phone,
+          email: formData.email,
+          ...(assignedAdminId ? { assignedAdminId } : {})
+        };
+        await apiClient.post('/users/employees', payload);
+      } else {
+        await apiClient.post('/users/admins', formData);
+      }
+      
+      Alert.alert('Success', `${role} created successfully. A temporary password has been emailed.`, [
         { text: 'OK', onPress: () => navigation.goBack() }
       ]);
     } catch (error: any) {
       console.error(error);
-      const msg = error.response?.data?.message || 'Failed to create employee';
+      const msg = error.response?.data?.message || `Failed to create ${role.toLowerCase()}`;
       Alert.alert('Error', msg);
     } finally {
       setLoading(false);
     }
   };
 
+  const isSuperadmin = user?.role === 'superadmin';
+
   return (
     <View style={styles.container}>
       <Appbar.Header style={styles.header}>
-        <Image 
-          source={require('../../../assets/emblem.png')}
-          style={styles.headerEmblem}
-          resizeMode="contain"
-        />
-        <Appbar.Content title="Add Employee" titleStyle={styles.headerTitle} />
+        <Appbar.BackAction onPress={() => navigation.goBack()} color="#1C2942" />
+        <Appbar.Content title={role === 'Employee' ? "Add Employee" : "Add Admin"} titleStyle={styles.headerTitle} />
         
+        <View style={styles.headerLang}>
+          <Text style={[styles.langText, styles.langTextActive]}>EN</Text>
+          <Text style={styles.langText}> | हिं</Text>
+        </View>
+
         <Menu
           visible={menuVisible}
           onDismiss={() => setMenuVisible(false)}
@@ -69,9 +109,6 @@ const AddEmployeeScreen = ({ navigation }: Props) => {
           contentStyle={{ backgroundColor: COLORS.surface }}
         >
           <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Home'); }} title="Home" />
-          <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Search'); }} title="Search" />
-          <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('AddArticle'); }} title="Add article" />
-          <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Profile'); }} title="Profile" />
           <Menu.Item onPress={() => { setMenuVisible(false); signOut(); }} title="Logout" />
         </Menu>
       </Appbar.Header>
@@ -81,16 +118,48 @@ const AddEmployeeScreen = ({ navigation }: Props) => {
         style={styles.container}
       >
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-          <Text style={styles.pageTitle}>Add employee</Text>
+          <Text style={styles.pageTitle}>Add {role.toLowerCase()}</Text>
           <Text style={styles.instructionText}>
-            All fields are required: name, designation, mobile, and email. A temporary password is emailed; the user changes it on first sign-in.
+            All fields are required. Employee: name, designation, mobile, email, and assigned admin. Admin: office, designation, address, location, state, pincode, mobile, and email.
           </Text>
 
-          <Text style={styles.inputLabel}>ROLE</Text>
-          <View style={styles.roleBlock}>
-            <Text style={styles.roleTitle}>Employee</Text>
-            <Text style={styles.roleSubtitle}>Admins can only create employees</Text>
-          </View>
+          {isSuperadmin && (
+            <>
+              <Text style={styles.inputLabel}>ROLE</Text>
+              <View style={styles.roleTabsContainer}>
+                <TouchableOpacity 
+                  style={[styles.roleTab, role === 'Employee' && styles.roleTabActive]}
+                  onPress={() => setRole('Employee')}
+                >
+                  <Text style={[styles.roleTabText, role === 'Employee' && styles.roleTabTextActive]}>Employee</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.roleTab, role === 'Admin' && styles.roleTabActive]}
+                  onPress={() => setRole('Admin')}
+                >
+                  <Text style={[styles.roleTabText, role === 'Admin' && styles.roleTabTextActive]}>Admin</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+
+          {!isSuperadmin && (
+            <View style={styles.roleBlock}>
+              <Text style={styles.roleTitle}>Employee</Text>
+              <Text style={styles.roleSubtitle}>Admins can only create employees</Text>
+            </View>
+          )}
+
+          {role === 'Employee' && isSuperadmin && (
+            <>
+              <Text style={styles.inputLabel}>ASSIGN TO ADMIN</Text>
+              <TouchableOpacity style={styles.dropdownInput} onPress={() => setModalVisible(true)}>
+                <Text style={assignedAdminName ? styles.dropdownTextSelected : styles.dropdownTextPlaceholder}>
+                  {assignedAdminName || 'Select an admin'}
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
 
           <Text style={styles.inputLabel}>Full name *</Text>
           <TextInput
@@ -113,6 +182,72 @@ const AddEmployeeScreen = ({ navigation }: Props) => {
             outlineColor="#D0D0D0"
             activeOutlineColor="#1C2942"
           />
+          
+          {role === 'Admin' && (
+            <>
+              <Text style={styles.inputLabel}>Office Name *</Text>
+              <TextInput
+                value={formData.officeName}
+                onChangeText={(text) => handleChange('officeName', text)}
+                placeholder="e.g. HQ Command"
+                mode="outlined"
+                style={styles.input}
+                outlineColor="#D0D0D0"
+                activeOutlineColor="#1C2942"
+              />
+              
+              <Text style={styles.inputLabel}>Address *</Text>
+              <TextInput
+                value={formData.address}
+                onChangeText={(text) => handleChange('address', text)}
+                placeholder="Street address"
+                mode="outlined"
+                style={styles.input}
+                outlineColor="#D0D0D0"
+                activeOutlineColor="#1C2942"
+              />
+
+              <Text style={styles.inputLabel}>Location *</Text>
+              <TextInput
+                value={formData.location}
+                onChangeText={(text) => handleChange('location', text)}
+                placeholder="City/Area"
+                mode="outlined"
+                style={styles.input}
+                outlineColor="#D0D0D0"
+                activeOutlineColor="#1C2942"
+              />
+
+              <View style={styles.row}>
+                <View style={styles.flex1}>
+                  <Text style={styles.inputLabel}>State *</Text>
+                  <TextInput
+                    value={formData.state}
+                    onChangeText={(text) => handleChange('state', text)}
+                    placeholder="State"
+                    mode="outlined"
+                    style={styles.input}
+                    outlineColor="#D0D0D0"
+                    activeOutlineColor="#1C2942"
+                  />
+                </View>
+                <View style={{ width: 16 }} />
+                <View style={styles.flex1}>
+                  <Text style={styles.inputLabel}>Pincode *</Text>
+                  <TextInput
+                    value={formData.pincode}
+                    onChangeText={(text) => handleChange('pincode', text)}
+                    placeholder="Pincode"
+                    keyboardType="number-pad"
+                    mode="outlined"
+                    style={styles.input}
+                    outlineColor="#D0D0D0"
+                    activeOutlineColor="#1C2942"
+                  />
+                </View>
+              </View>
+            </>
+          )}
 
           <Text style={styles.inputLabel}>Phone (mobile) *</Text>
           <TextInput
@@ -139,12 +274,6 @@ const AddEmployeeScreen = ({ navigation }: Props) => {
             activeOutlineColor="#1C2942"
           />
 
-          <View style={styles.infoBanner}>
-            <Text style={styles.infoBannerText}>
-              A temporary password is generated automatically and emailed to the user. They sign in with their mobile number and must change the password on first sign-in.
-            </Text>
-          </View>
-
           <Button 
             mode="contained" 
             onPress={handleCreate} 
@@ -153,17 +282,47 @@ const AddEmployeeScreen = ({ navigation }: Props) => {
             style={styles.submitButton}
             labelStyle={styles.submitButtonText}
           >
-            Create employee
+            Create {role.toLowerCase()}
           </Button>
 
         </ScrollView>
-
         <View style={styles.footer}>
           <Text style={styles.footerText}>
             Government of India · Ministry of Defence · v1.0.0
           </Text>
         </View>
       </KeyboardAvoidingView>
+
+      <Modal visible={modalVisible} transparent={true} animationType="fade">
+        <TouchableOpacity style={styles.modalOverlay} onPress={() => setModalVisible(false)} activeOpacity={1}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select an admin</Text>
+            {admins.length === 0 ? (
+              <Text style={{ padding: 16, textAlign: 'center', color: '#666' }}>No admins found.</Text>
+            ) : (
+              <FlatList
+                data={admins}
+                keyExtractor={(item) => item.id || item._id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity 
+                    style={styles.adminListItem}
+                    onPress={() => {
+                      setAssignedAdminId(item.id || item._id);
+                      setAssignedAdminName(item.name);
+                      setModalVisible(false);
+                    }}
+                  >
+                    <Text style={styles.adminListName}>{item.name}</Text>
+                    <Text style={styles.adminListEmail}>{item.email}</Text>
+                    <Divider style={{ marginTop: 12 }} />
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
     </View>
   );
 };
@@ -176,16 +335,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.divider,
   },
-  headerEmblem: { width: 24, height: 36, marginLeft: 16 },
   headerTitle: { textAlign: 'center', fontWeight: 'bold', color: '#1C2942', fontSize: 18 },
-  menuButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 4,
-    marginRight: 16,
-  },
+  headerLang: { flexDirection: 'row', marginRight: 16 },
+  langText: { fontSize: 14, color: '#666' },
+  langTextActive: { fontWeight: 'bold', color: '#1C2942' },
+  menuButton: { display: 'none' }, // Hiding based on mockup, or we can leave it
   scrollView: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 40 },
   pageTitle: {
@@ -209,6 +363,32 @@ const styles = StyleSheet.create({
     marginTop: 12,
     textTransform: 'uppercase',
   },
+  roleTabsContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  roleTab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: '#EAECEF',
+    borderWidth: 1,
+    borderColor: 'transparent',
+    borderRadius: 4,
+    marginHorizontal: 4,
+  },
+  roleTabActive: {
+    backgroundColor: '#E8F0FEE6',
+    borderColor: '#1C2942',
+  },
+  roleTabText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#666',
+  },
+  roleTabTextActive: {
+    color: '#1C2942',
+  },
   roleBlock: {
     backgroundColor: '#EAEFF8',
     borderRadius: 8,
@@ -226,20 +406,33 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 4,
   },
+  dropdownInput: {
+    backgroundColor: '#fff',
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#D0D0D0',
+    borderRadius: 4,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    marginBottom: 8,
+  },
+  dropdownTextPlaceholder: {
+    color: '#888',
+    fontSize: 16,
+  },
+  dropdownTextSelected: {
+    color: '#111',
+    fontSize: 16,
+  },
   input: {
     backgroundColor: '#fff',
     height: 50,
   },
-  infoBanner: {
-    backgroundColor: '#E5E5E0',
-    borderRadius: 8,
-    padding: 16,
-    marginTop: 24,
+  row: {
+    flexDirection: 'row',
   },
-  infoBannerText: {
-    fontSize: 14,
-    color: '#444',
-    lineHeight: 20,
+  flex1: {
+    flex: 1,
   },
   submitButton: {
     backgroundColor: '#1C2942',
@@ -257,6 +450,42 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F6F1',
   },
   footerText: { fontSize: 12, color: COLORS.textSecondary },
+  
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    width: '85%',
+    maxHeight: '70%',
+    borderRadius: 8,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111',
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  adminListItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  adminListName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#111',
+  },
+  adminListEmail: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 2,
+  },
 });
 
 export default AddEmployeeScreen;

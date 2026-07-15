@@ -20,6 +20,19 @@ const employeeCreationRules = [
   strongPasswordOptional('password') // If omitted, provisioned password generated
 ];
 
+const adminCreationRules = [
+  body('name').trim().notEmpty().withMessage('Name is required'),
+  body('email').trim().isEmail().withMessage('Valid email is required'),
+  phoneRequiredValidator,
+  strongPasswordOptional('password'),
+  body('officeName').optional().trim(),
+  body('designation').optional().trim(),
+  body('location').optional().trim(),
+  body('address').optional().trim(),
+  body('state').optional().trim(),
+  body('pincode').optional().trim()
+];
+
 const employeeUpdateRules = [
   param('id').isUUID(4).withMessage('Invalid ID'),
   body('name').optional().trim().notEmpty().withMessage('Name cannot be empty'),
@@ -36,6 +49,15 @@ router.post(
   employeeCreationRules,
   validateRequest,
   UserController.createEmployee
+);
+
+// Admin management by Superadmin
+router.post(
+  '/admins',
+  authorize(ROLES.SUPERADMIN),
+  adminCreationRules,
+  validateRequest,
+  UserController.createAdmin
 );
 
 router.get(

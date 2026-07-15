@@ -19,7 +19,7 @@ const {
 } = require('../services/loginOtp.service');
 
 exports.registerAdmin = asyncHandler(async (req, res) => {
-  const { name, email, phone, password, officeName, designation, location } = req.body;
+  const { name, email, phone, password, officeName, designation, location, address, state, pincode } = req.body;
 
   const emailTaken = await User.emailTaken(email);
   if (emailTaken) {
@@ -45,7 +45,10 @@ exports.registerAdmin = asyncHandler(async (req, res) => {
     isApproved: false,
     officeName,
     designation,
-    location
+    location,
+    address,
+    state,
+    pincode
   });
 
   const superadmins = await User.findByRole(ROLES.SUPERADMIN);

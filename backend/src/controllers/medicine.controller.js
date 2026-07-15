@@ -25,22 +25,12 @@ async function enrichWithCreator(medicines) {
 }
 
 function resolveScope(user) {
-  if (user.role === ROLES.SUPERADMIN || user.role === ROLES.ADMIN) {
-    return {};
-  }
   return { createdBy: user.id };
 }
 
 async function verifyOwnership(med, user) {
-  if (user.role === ROLES.SUPERADMIN || user.role === ROLES.ADMIN) {
-    return true;
-  }
   if (med.createdBy === user.id) {
     return true;
-  }
-  const creator = await User.getById(med.createdBy);
-  if (creator && creator.createdBy === user.id) {
-    return true; // Admin can edit employee's items, handled above, but just in case
   }
   throw new AppError('Forbidden', 403);
 }

@@ -119,7 +119,12 @@ async function deliverOtp(user, otp, purpose) {
   if (purpose === OTP_PURPOSE.LOGIN) {
     if (dualLogin) {
       // Superadmin: Twilio Verify on phone, SMTP on email (separate codes; either works)
-      const result = await sendLoginOtpSms(phone, otp);
+      let result = { useLocalVerify: true };
+      try {
+        result = await sendLoginOtpSms(phone, otp);
+      } catch (smsErr) {
+        console.warn(`[loginOtp] Twilio SMS failed for superadmin, falling back to email only:`, smsErr.message);
+      }
       useLocalVerify = result.useLocalVerify;
       const email = user.email.trim().toLowerCase();
       if (isSmtpConfigured()) {

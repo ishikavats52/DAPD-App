@@ -16,6 +16,7 @@ export type MainStackParamList = {
   Profile: undefined;
   Users: undefined;
   AddEmployee: undefined;
+  AuditLog: undefined;
 };
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
@@ -32,6 +33,7 @@ export const MainTabNavigator = () => {
       <Stack.Screen name="Profile" component={require('../screens/main/ProfileScreen').default} />
       <Stack.Screen name="Users" component={require('../screens/main/UsersScreen').default} />
       <Stack.Screen name="AddEmployee" component={require('../screens/main/AddEmployeeScreen').default} />
+      <Stack.Screen name="AuditLog" component={require('../screens/main/AuditLogScreen').default} />
     </Stack.Navigator>
   );
 };

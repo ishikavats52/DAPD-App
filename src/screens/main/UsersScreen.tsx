@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity, Image, Alert } from 'react-native';
-import { Text, Appbar, Menu, ActivityIndicator } from 'react-native-paper';
+import { Text, Appbar, Menu, ActivityIndicator, Divider } from 'react-native-paper';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '../../navigation/MainTabNavigator';
 import { COLORS } from '../../theme';
@@ -12,18 +12,49 @@ type Props = {
   navigation: NativeStackNavigationProp<MainStackParamList, 'Users'>;
 };
 
+const getAvatarStyle = (name: string) => {
+  const char = (name || 'U').charAt(0).toUpperCase();
+  // Simple check based on mockup (L is green, I/Y orange)
+  if (['L', 'A', 'E', 'O', 'U'].includes(char)) {
+    return { bg: '#E6F4EA', text: '#137333' }; // Green
+  }
+  return { bg: '#FFF3E0', text: '#E65100' }; // Orange
+};
+
+const getRoleStyle = (role: string) => {
+  if (role === 'employee') return { bg: '#E6F4EA', text: '#137333' }; // Green
+  return { bg: '#FFF3E0', text: '#E65100' }; // Orange
+};
+
 const UsersScreen = ({ navigation }: Props) => {
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const isFocused = useIsFocused();
   const [menuVisible, setMenuVisible] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'approved' | 'pending'>('approved');
+  const [lang, setLang] = useState<'EN' | 'HI'>('EN');
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (mode: 'approved' | 'pending') => {
     try {
       setLoading(true);
-      const response = await apiClient.get('/users/employees');
-      setUsers(response.data.data || []);
+      if (mode === 'pending') {
+        const response = await apiClient.get('/users/pending-admins');
+        setUsers(response.data.data || []);
+      } else {
+        if (user?.role === 'superadmin') {
+          const [empRes, adminRes] = await Promise.all([
+            apiClient.get('/users/employees'),
+            apiClient.get('/users/admins')
+          ]);
+          const emps = empRes.data.data || [];
+          const admins = adminRes.data.data || [];
+          setUsers([...emps, ...admins]);
+        } else {
+          const response = await apiClient.get('/users/employees');
+          setUsers(response.data.data || []);
+        }
+      }
     } catch (error: any) {
       console.error('Failed to fetch users:', error);
       Alert.alert('Error', error.response?.data?.message || 'Failed to fetch users');
@@ -34,9 +65,9 @@ const UsersScreen = ({ navigation }: Props) => {
 
   useEffect(() => {
     if (isFocused) {
-      fetchUsers();
+      fetchUsers(viewMode);
     }
-  }, [isFocused]);
+  }, [isFocused, viewMode]);
 
   const handleDelete = (id: string) => {
     Alert.alert(
@@ -50,9 +81,9 @@ const UsersScreen = ({ navigation }: Props) => {
           onPress: async () => {
             try {
               setLoading(true);
-              await apiClient.delete(`/users/employees/${id}`);
+              await apiClient.delete(`/users/employees/${id}`); // Assuming API handles both, or we need different endpoint
               Alert.alert("Success", "User deleted successfully");
-              fetchUsers();
+              fetchUsers(viewMode);
             } catch (error: any) {
               console.error(error);
               Alert.alert("Error", error.response?.data?.message || "Failed to delete user");
@@ -64,45 +95,79 @@ const UsersScreen = ({ navigation }: Props) => {
     );
   };
 
-  const renderItem = ({ item }: { item: any }) => (
-    <View style={styles.userCard}>
-      <View style={styles.userCardContent}>
-        <View style={styles.avatarContainer}>
-          <Text style={styles.avatarText}>{item.name ? item.name.charAt(0).toUpperCase() : 'U'}</Text>
+  const renderItem = ({ item }: { item: any }) => {
+    const avatarStyle = getAvatarStyle(item.name);
+    const roleStyle = getRoleStyle(item.role);
+
+    return (
+      <View style={styles.userCard}>
+        <View style={styles.userCardContent}>
+          <View style={[styles.avatarContainer, { backgroundColor: avatarStyle.bg }]}>
+            <Text style={[styles.avatarText, { color: avatarStyle.text }]}>
+              {item.name ? item.name.charAt(0).toUpperCase() : 'U'}
+            </Text>
+          </View>
+          <View style={styles.userInfo}>
+            <Text style={styles.userName}>{item.name}</Text>
+            <Text style={styles.userPhone}>{item.phone}</Text>
+            <Text style={styles.userEmail}>{item.email}</Text>
+          </View>
+          <View style={[styles.rolePill, { backgroundColor: roleStyle.bg }]}>
+            <Text style={[styles.rolePillText, { color: roleStyle.text }]}>
+              {item.role === 'employee' ? 'Employee' : 'Admin'}
+            </Text>
+          </View>
         </View>
-        <View style={styles.userInfo}>
-          <Text style={styles.userName}>{item.name}</Text>
-          <Text style={styles.userPhone}>{item.phone}</Text>
-          <Text style={styles.userEmail}>{item.email}</Text>
-        </View>
-        <View style={styles.rolePill}>
-          <Text style={styles.rolePillText}>{item.role === 'employee' ? 'Employee' : item.role}</Text>
+        
+        <View style={styles.cardDivider} />
+        
+        <View style={styles.actionRow}>
+          <TouchableOpacity 
+            style={styles.changeRoleButton} 
+            activeOpacity={0.7}
+            onPress={() => Alert.alert('Info', 'Change role functionality pending.')}
+          >
+            <Text style={styles.changeRoleText}>Change role</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.deleteButton} 
+            activeOpacity={0.7}
+            onPress={() => handleDelete(item.id || item._id)}
+          >
+            <Text style={styles.deleteButtonText}>Delete</Text>
+          </TouchableOpacity>
         </View>
       </View>
-      <View style={styles.cardDivider} />
-      <TouchableOpacity 
-        style={styles.deleteButton} 
-        activeOpacity={0.7}
-        onPress={() => handleDelete(item.id || item._id)}
-      >
-        <Text style={styles.deleteButtonText}>Delete</Text>
-      </TouchableOpacity>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
       <Appbar.Header style={styles.header}>
         <Image 
-          source={require('../../../assets/emblem.png')}
+          source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Emblem_of_India.svg/250px-Emblem_of_India.svg.png' }}
           style={styles.headerEmblem}
           resizeMode="contain"
         />
-        <Appbar.Content title="Users" titleStyle={styles.headerTitle} />
+        <Text style={styles.headerTitle}>Users</Text>
         
-        <TouchableOpacity onPress={() => navigation.navigate('AddEmployee')} style={styles.addButton}>
-          <Text style={styles.addButtonText}>+ Add</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          {user?.role === 'superadmin' && (
+            <TouchableOpacity 
+              onPress={() => setViewMode(viewMode === 'pending' ? 'approved' : 'pending')} 
+              style={[styles.pillButton, viewMode === 'pending' ? styles.pillButtonActive : null]}
+            >
+              <Text style={styles.pillButtonText}>Pending</Text>
+            </TouchableOpacity>
+          )}
+          
+          <TouchableOpacity 
+            onPress={() => navigation.navigate('AddEmployee')} 
+            style={styles.pillButton}
+          >
+            <Text style={styles.pillButtonText}>+ Add</Text>
+          </TouchableOpacity>
+        </View>
 
         <Menu
           visible={menuVisible}
@@ -117,7 +182,22 @@ const UsersScreen = ({ navigation }: Props) => {
           <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Home'); }} title="Home" />
           <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Search'); }} title="Search" />
           <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('AddArticle'); }} title="Add article" />
+          <Menu.Item onPress={() => { setMenuVisible(false); }} title="Users" />
           <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Profile'); }} title="Profile" />
+          
+          <Divider />
+          <View style={styles.langToggleMenu}>
+            <TouchableOpacity onPress={() => setLang('EN')} style={styles.langBtn}>
+              <Text style={[styles.langText, lang === 'EN' && styles.langTextActive]}>EN</Text>
+            </TouchableOpacity>
+            <View style={styles.langDivider} />
+            <TouchableOpacity onPress={() => setLang('HI')} style={styles.langBtn}>
+              <Text style={[styles.langText, lang === 'HI' && styles.langTextActive]}>हिं</Text>
+            </TouchableOpacity>
+          </View>
+          <Divider />
+
+          <Menu.Item onPress={() => setMenuVisible(false)} title="Help" />
           <Menu.Item onPress={() => { setMenuVisible(false); signOut(); }} title="Logout" />
         </Menu>
       </Appbar.Header>
@@ -156,16 +236,35 @@ const styles = StyleSheet.create({
     elevation: 0,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.divider,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   headerEmblem: { width: 24, height: 36, marginLeft: 16 },
-  headerTitle: { textAlign: 'center', fontWeight: 'bold', color: '#1C2942', fontSize: 18 },
-  addButton: {
-    marginRight: 12,
+  headerTitle: { 
+    fontWeight: 'bold', 
+    color: '#1C2942', 
+    fontSize: 18, 
+    marginLeft: 12,
+    flex: 1,
   },
-  addButtonText: {
-    color: '#1C2942',
+  headerActions: {
+    flexDirection: 'row',
+    marginRight: 8,
+  },
+  pillButton: {
+    backgroundColor: '#1C2942',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginLeft: 8,
+  },
+  pillButtonActive: {
+    backgroundColor: '#374151', // slightly lighter to indicate active if needed
+  },
+  pillButtonText: {
+    color: '#FFFFFF',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 14,
   },
   menuButton: {
     paddingHorizontal: 12,
@@ -174,6 +273,30 @@ const styles = StyleSheet.create({
     borderColor: '#E0E0E0',
     borderRadius: 4,
     marginRight: 16,
+    marginLeft: 8,
+  },
+  langToggleMenu: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+  },
+  langBtn: {
+    paddingHorizontal: 12,
+  },
+  langText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  langTextActive: {
+    fontWeight: 'bold',
+    color: '#1C2942',
+  },
+  langDivider: {
+    width: 1,
+    height: 14,
+    backgroundColor: '#E0E0E0',
   },
   content: { flex: 1 },
   emptyContainer: {
@@ -204,7 +327,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#E6F4EA',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -212,7 +334,6 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#137333',
   },
   userInfo: {
     flex: 1,
@@ -221,19 +342,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#111',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   userPhone: {
-    fontSize: 13,
-    color: '#555',
+    fontSize: 14,
+    color: '#666',
     marginBottom: 2,
   },
   userEmail: {
-    fontSize: 13,
-    color: '#777',
+    fontSize: 14,
+    color: '#666',
   },
   rolePill: {
-    backgroundColor: '#E6F4EA',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 4,
@@ -242,7 +362,6 @@ const styles = StyleSheet.create({
   rolePillText: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#137333',
     textTransform: 'capitalize',
   },
   cardDivider: {
@@ -250,11 +369,30 @@ const styles = StyleSheet.create({
     backgroundColor: '#E0E0E0',
     marginVertical: 16,
   },
+  actionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  changeRoleButton: {
+    flex: 1,
+    backgroundColor: '#E8EDF5',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  changeRoleText: {
+    color: '#1C2942',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
   deleteButton: {
+    flex: 1,
     backgroundColor: '#FCE8E8',
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
+    marginLeft: 8,
   },
   deleteButtonText: {
     color: '#B91C1C',

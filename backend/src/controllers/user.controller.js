@@ -36,7 +36,7 @@ exports.createEmployee = asyncHandler(async (req, res) => {
     phone: phoneNorm,
     password: pw,
     role: ROLES.EMPLOYEE,
-    createdBy: req.user.id,
+    createdBy: req.user.role === ROLES.SUPERADMIN && req.body.assignedAdminId ? req.body.assignedAdminId : req.user.id,
     designation,
     location,
     isApproved: true,
@@ -63,6 +63,68 @@ exports.createEmployee = asyncHandler(async (req, res) => {
 
   res.status(201).json({
     message: 'Employee created successfully',
+    user: User.toPublicUser(user)
+  });
+});
+
+exports.createAdmin = asyncHandler(async (req, res) => {
+  const { name, email, phone, password, officeName, designation, location, address, state, pincode } = req.body;
+
+  const emailTaken = await User.emailTaken(email);
+  if (emailTaken) {
+    throw new AppError('Email is already registered', 400);
+  }
+  
+  const phoneNorm = normalizePhoneToE164(phone);
+  if (!phoneNorm) {
+    throw new AppError('Invalid phone format', 400);
+  }
+
+  const phoneTaken = await User.phoneTaken(phoneNorm);
+  if (phoneTaken) {
+    throw new AppError('Phone is already registered', 400);
+  }
+
+  const isProvisioned = !password;
+  const pw = isProvisioned ? generateProvisionedPassword() : password;
+
+  const user = await User.create({
+    name,
+    email,
+    phone: phoneNorm,
+    password: pw,
+    role: ROLES.ADMIN,
+    createdBy: req.user.id,
+    officeName,
+    designation,
+    location,
+    address,
+    state,
+    pincode,
+    isApproved: true,
+    mustChangePassword: isProvisioned
+  });
+
+  if (isProvisioned) {
+    sendProvisionedAccountCredentialsEmail(user.email, {
+      email: user.email,
+      phone: user.phone,
+      password: pw,
+      roleLabel: 'Admin'
+    }).catch(console.error);
+  }
+
+  await logAudit({
+    userId: req.user.id,
+    action: 'CREATE_USER',
+    resource: 'User',
+    resourceId: user._id,
+    details: `Created admin ${user.email}`,
+    req
+  });
+
+  res.status(201).json({
+    message: 'Admin created successfully',
     user: User.toPublicUser(user)
   });
 });
