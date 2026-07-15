@@ -20,31 +20,48 @@ const LoginScreen = ({ navigation }: Props) => {
   const [lang, setLang] = useState<'EN' | 'HI'>('EN');
   const { signIn } = useAuth();
 
-  const handleLogin = async () => {
-    if (!phone || !password) {
-      Alert.alert('Error', 'Please enter both mobile number and password');
-      return;
-    }
+const handleLogin = async () => {
+  if (!phone || !password) {
+    Alert.alert('Error', 'Please enter both mobile number and password');
+    return;
+  }
 
-    setLoading(true);
-    try {
-      const response = await apiClient.post('/auth/login', { identifier: phone, password });
-      
-      if (response.data.otpRequired) {
-        navigation.navigate('OTP', { 
-          loginChallengeId: response.data.loginChallengeId,
-          phone 
-        });
-      } else if (response.data.token) {
-        await signIn(response.data.token, response.data.user);
-      }
-    } catch (error: any) {
-      const message = error.response?.data?.message || 'Failed to login';
-      Alert.alert('Error', message);
-    } finally {
-      setLoading(false);
+  console.log('LOGIN BUTTON PRESSED');
+  console.log('Phone:', phone);
+
+  setLoading(true);
+
+  try {
+    console.log('BEFORE API CALL');
+
+    const response = await apiClient.post('/auth/login', {
+      identifier: phone,
+      password,
+    });
+
+    console.log('LOGIN RESPONSE:', response.data);
+
+    if (response.data.otpRequired) {
+      navigation.navigate('OTP', {
+        loginChallengeId: response.data.loginChallengeId,
+        phone,
+      });
+    } else if (response.data.token) {
+      await signIn(response.data.token, response.data.user);
     }
-  };
+  } catch (error: any) {
+    console.log('LOGIN ERROR:', error?.message);
+    console.log('LOGIN RESPONSE:', error?.response?.data);
+    console.log('FULL ERROR:', JSON.stringify(error, null, 2));
+
+    Alert.alert(
+      'Login Error',
+      JSON.stringify(error?.response?.data || error?.message)
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <KeyboardAvoidingView 

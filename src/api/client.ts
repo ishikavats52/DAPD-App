@@ -3,8 +3,11 @@ import * as SecureStore from 'expo-secure-store';
 
 // Change this to your local machine IP address (e.g. 192.168.x.x) or production URL
 // const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.53:5050/api';
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+const BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ||
+  'http://13.201.87.28:5050/api';
 
+console.log("BASE_URL =", BASE_URL);
 const apiClient = axios.create({
   baseURL: BASE_URL,
   headers: {
