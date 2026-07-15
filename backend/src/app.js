@@ -60,23 +60,11 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.get('/', (req, res) => {
-  res.type('html').send(`
-    <div style="font-family:sans-serif;text-align:center;margin-top:50px;">
-      <h2>Made with ❤️ by Manya Shukla 2026</h2>
-      <p>📞 Contact me on WhatsApp</p>
-      <a href="https://wa.me/918005586588" target="_blank" rel="noopener noreferrer"
-         style="padding:10px 20px;background:green;color:white;text-decoration:none;border-radius:5px;">
-        Chat Now
-      </a>
-      <p style="margin-top:28px;">
-        <a href="/api-docs" style="color:#0366d6;">API docs (Swagger UI)</a>
-        ·
-        <a href="/openapi.yaml" style="color:#0366d6;">openapi.yaml</a>
-      </p>
-    </div>
-  `);
+
+app.get('/', (_req, res) => {
+  res.send('DAPD Backend Running');
 });
+
 
 app.use(
   '/api/auth/admin-signup',
