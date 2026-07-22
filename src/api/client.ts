@@ -5,6 +5,7 @@ const BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ||
   'http://13.201.87.28:5050/api';
 
+
 console.log('BASE_URL =', BASE_URL);
 
 const apiClient = axios.create({

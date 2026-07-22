@@ -105,15 +105,16 @@ const CameraScreen = ({ navigation }: Props) => {
           facing="back"
           ref={cameraRef}
         >
-          <View style={styles.overlay}>
-            <View style={styles.frame} />
-            <Text style={styles.instructions}>Align document within the frame</Text>
+          <View style={styles.cameraUI}>
+            <View style={styles.instructionPill}>
+              <Text style={styles.instructions}>Position document clearly in view</Text>
+            </View>
           </View>
         </CameraView>
         {loading && (
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color="#fff" />
-            <Text style={styles.loadingText}>Analyzing document with Gemini AI...</Text>
+            <Text style={styles.loadingText}>Analyzing document securely...</Text>
           </View>
         )}
       </View>
@@ -163,25 +164,25 @@ const styles = StyleSheet.create({
   camera: { flex: 1 },
   previewContainer: { flex: 1, position: 'relative', backgroundColor: '#000' },
   preview: { flex: 1 },
-  overlay: {
+  cameraUI: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
+    paddingTop: 40,
   },
-  frame: {
-    width: '85%',
-    height: '60%',
-    borderWidth: 2,
-    borderColor: '#fff',
-    borderRadius: 8,
-    backgroundColor: 'transparent',
+  instructionPill: {
+    backgroundColor: 'rgba(28, 41, 66, 0.85)',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   instructions: {
     color: '#fff',
-    marginTop: 16,
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,

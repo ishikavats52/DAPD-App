@@ -131,10 +131,14 @@ const VerificationScreen = ({ route, navigation }: Props) => {
       </Appbar.Header>
 
       <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
         style={styles.container}
       >
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        <ScrollView 
+          style={styles.scrollView} 
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
           
           {/* Top Image Preview & Scan buttons */}
           <View style={styles.topActionsRow}>
