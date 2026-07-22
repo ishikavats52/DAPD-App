@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 
 const BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ||
-  'http://192.168.1.54:5050/api';
+  'http://13.201.87.28:5050/api';
 
 console.log('BASE_URL =', BASE_URL);
 
