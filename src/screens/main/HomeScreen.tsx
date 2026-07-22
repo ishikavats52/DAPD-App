@@ -116,7 +116,9 @@ const HomeScreen = ({ navigation }: Props) => {
         >
           <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Home'); }} title="Home" />
           <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Search'); }} title="Search" />
-          <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('AddArticle'); }} title="Add article" />
+          {user?.role !== 'superadmin' && (
+            <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('AddArticle'); }} title="Add article" />
+          )}
           {user?.role !== 'employee' && (
             <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Users'); }} title="Users" />
           )}
@@ -150,29 +152,33 @@ const HomeScreen = ({ navigation }: Props) => {
           )}
         </View>
 
-        <View style={styles.dividerContainer}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>ARTICLES</Text>
-          <View style={styles.dividerLine} /> 
-        </View>
+        {user?.role !== 'superadmin' && (
+          <>
+            <View style={styles.dividerContainer}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>ARTICLES</Text>
+              <View style={styles.dividerLine} /> 
+            </View>
 
-        {loading ? (
-          <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 40 }} />
-        ) : (
-          <FlatList
-            data={medicines}
-            keyExtractor={(item) => item._id}
-            renderItem={renderItem}
-            contentContainerStyle={styles.listContainer}
-            showsVerticalScrollIndicator={false}
-            onEndReached={() => fetchMedicines(true)}
-            onEndReachedThreshold={0.5}
-            ListFooterComponent={
-              isFetchingMore ? (
-                <ActivityIndicator size="small" color={COLORS.primary} style={{ padding: 16 }} />
-              ) : null
-            }
-          />
+            {loading ? (
+              <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 40 }} />
+            ) : (
+              <FlatList
+                data={medicines}
+                keyExtractor={(item) => item._id}
+                renderItem={renderItem}
+                contentContainerStyle={styles.listContainer}
+                showsVerticalScrollIndicator={false}
+                onEndReached={() => fetchMedicines(true)}
+                onEndReachedThreshold={0.5}
+                ListFooterComponent={
+                  isFetchingMore ? (
+                    <ActivityIndicator size="small" color={COLORS.primary} style={{ padding: 16 }} />
+                  ) : null
+                }
+              />
+            )}
+          </>
         )}
       </View>
 

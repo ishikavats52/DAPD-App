@@ -51,11 +51,11 @@ const CameraScreen = ({ navigation }: Props) => {
 
   const processImages = async () => {
     if (photoUris.length === 0) return;
-    
+
     setLoading(true);
     try {
       const formData = new FormData();
-      
+
       const compressedUris = [];
       for (let i = 0; i < photoUris.length; i++) {
         const manipResult = await ImageManipulator.manipulateAsync(
@@ -64,22 +64,22 @@ const CameraScreen = ({ navigation }: Props) => {
           { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
         );
         compressedUris.push(manipResult.uri);
-        
+
         formData.append('images', {
           uri: manipResult.uri,
           name: `scan_${i}.jpg`,
           type: 'image/jpeg',
         } as any);
       }
-      
+
       const response = await apiClient.post('/medicines/scan-image', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
       const extractedData = response.data.extractedData || response.data.fields || response.data;
-      
-      navigation.replace('Verification', { 
-        extractedData, 
+
+      navigation.replace('Verification', {
+        extractedData,
         imageUris: compressedUris
       });
 
@@ -100,8 +100,8 @@ const CameraScreen = ({ navigation }: Props) => {
       </Appbar.Header>
 
       <View style={styles.content}>
-        <CameraView 
-          style={styles.camera} 
+        <CameraView
+          style={styles.camera}
           facing="back"
           ref={cameraRef}
         >
@@ -113,8 +113,11 @@ const CameraScreen = ({ navigation }: Props) => {
         </CameraView>
         {loading && (
           <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#fff" />
-            <Text style={styles.loadingText}>Analyzing document securely...</Text>
+            <View style={styles.loadingCard}>
+              <ActivityIndicator size={48} color={theme.colors.primary} />
+              <Text style={styles.loadingTitle}>Processing Document</Text>
+              <Text style={styles.loadingSub}>Extracting data securely using AI...</Text>
+            </View>
           </View>
         )}
       </View>
@@ -122,8 +125,8 @@ const CameraScreen = ({ navigation }: Props) => {
       <View style={styles.footer}>
         <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
           {photoUris.length > 0 ? (
-            <Button 
-              mode="outlined" 
+            <Button
+              mode="outlined"
               onPress={() => setPhotoUris([])}
               disabled={loading}
               style={{ flex: 1, marginRight: 8 }}
@@ -131,9 +134,9 @@ const CameraScreen = ({ navigation }: Props) => {
               Clear All
             </Button>
           ) : <View style={{ flex: 1 }} />}
-          
-          <TouchableOpacity 
-            style={styles.captureButtonOuter} 
+
+          <TouchableOpacity
+            style={styles.captureButtonOuter}
             onPress={takePicture}
             disabled={loading}
           >
@@ -141,8 +144,8 @@ const CameraScreen = ({ navigation }: Props) => {
           </TouchableOpacity>
 
           {photoUris.length > 0 ? (
-            <Button 
-              mode="contained" 
+            <Button
+              mode="contained"
               onPress={processImages}
               loading={loading}
               disabled={loading}
@@ -186,11 +189,35 @@ const styles = StyleSheet.create({
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(23, 43, 77, 0.90)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 10,
   },
-  loadingText: { color: '#fff', marginTop: 16, fontSize: 16, fontWeight: 'bold' },
+  loadingCard: {
+    backgroundColor: '#fff',
+    padding: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    width: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  loadingTitle: {
+    color: '#172B4D',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 24,
+    marginBottom: 8,
+  },
+  loadingSub: {
+    color: '#6B778C',
+    fontSize: 14,
+    textAlign: 'center',
+  },
   footer: {
     padding: 24,
     backgroundColor: '#fff',

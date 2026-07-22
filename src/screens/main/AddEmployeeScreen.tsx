@@ -11,12 +11,21 @@ type Props = {
   navigation: NativeStackNavigationProp<MainStackParamList, 'AddEmployee'>;
 };
 
+const STATES = [
+  'Andaman and Nicobar Islands', 'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 
+  'Chandigarh', 'Chhattisgarh', 'Dadra and Nagar Haveli', 'Daman and Diu', 'Delhi', 'Goa', 
+  'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jammu and Kashmir', 'Jharkhand', 'Karnataka', 
+  'Kerala', 'Ladakh', 'Lakshadweep', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 
+  'Mizoram', 'Nagaland', 'Odisha', 'Puducherry', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 
+  'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal'
+];
+
 const AddEmployeeScreen = ({ navigation }: Props) => {
   const { signOut, user } = useAuth();
   const [menuVisible, setMenuVisible] = useState(false);
+  const [stateMenuVisible, setStateMenuVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   
-  const [role, setRole] = useState<'Employee' | 'Admin'>('Employee');
   const [modalVisible, setModalVisible] = useState(false);
   const [admins, setAdmins] = useState<any[]>([]);
   const [assignedAdminId, setAssignedAdminId] = useState('');
@@ -86,6 +95,7 @@ const AddEmployeeScreen = ({ navigation }: Props) => {
   };
 
   const isSuperadmin = user?.role === 'superadmin';
+  const role = isSuperadmin ? 'Admin' : 'Employee';
 
   return (
     <View style={styles.container}>
@@ -123,32 +133,7 @@ const AddEmployeeScreen = ({ navigation }: Props) => {
             All fields are required. Employee: name, designation, mobile, email, and assigned admin. Admin: office, designation, address, location, state, pincode, mobile, and email.
           </Text>
 
-          {isSuperadmin && (
-            <>
-              <Text style={styles.inputLabel}>ROLE</Text>
-              <View style={styles.roleTabsContainer}>
-                <TouchableOpacity 
-                  style={[styles.roleTab, role === 'Employee' && styles.roleTabActive]}
-                  onPress={() => setRole('Employee')}
-                >
-                  <Text style={[styles.roleTabText, role === 'Employee' && styles.roleTabTextActive]}>Employee</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={[styles.roleTab, role === 'Admin' && styles.roleTabActive]}
-                  onPress={() => setRole('Admin')}
-                >
-                  <Text style={[styles.roleTabText, role === 'Admin' && styles.roleTabTextActive]}>Admin</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
 
-          {!isSuperadmin && (
-            <View style={styles.roleBlock}>
-              <Text style={styles.roleTitle}>Employee</Text>
-              <Text style={styles.roleSubtitle}>Admins can only create employees</Text>
-            </View>
-          )}
 
           {role === 'Employee' && isSuperadmin && (
             <>
@@ -221,15 +206,33 @@ const AddEmployeeScreen = ({ navigation }: Props) => {
               <View style={styles.row}>
                 <View style={styles.flex1}>
                   <Text style={styles.inputLabel}>State *</Text>
-                  <TextInput
-                    value={formData.state}
-                    onChangeText={(text) => handleChange('state', text)}
-                    placeholder="State"
-                    mode="outlined"
-                    style={styles.input}
-                    outlineColor="#D0D0D0"
-                    activeOutlineColor="#1C2942"
-                  />
+                  <Menu
+                    visible={stateMenuVisible}
+                    onDismiss={() => setStateMenuVisible(false)}
+                    anchor={
+                      <TouchableOpacity onPress={() => setStateMenuVisible(true)}>
+                        <TextInput
+                          value={formData.state}
+                          placeholder="Select state"
+                          editable={false}
+                          mode="outlined"
+                          style={styles.input}
+                          outlineColor="#D0D0D0"
+                          activeOutlineColor="#1C2942"
+                        />
+                      </TouchableOpacity>
+                    }
+                  >
+                    <ScrollView style={{ maxHeight: 250 }}>
+                      {STATES.map(s => (
+                        <Menu.Item 
+                          key={s} 
+                          onPress={() => { handleChange('state', s); setStateMenuVisible(false); }} 
+                          title={s} 
+                        />
+                      ))}
+                    </ScrollView>
+                  </Menu>
                 </View>
                 <View style={{ width: 16 }} />
                 <View style={styles.flex1}>

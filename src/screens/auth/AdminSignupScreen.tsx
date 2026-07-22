@@ -71,10 +71,13 @@ const AdminSignupScreen = ({ navigation }: Props) => {
   return (
     <Provider>
       <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
           {/* Language Toggle */}
           <View style={styles.langToggleContainer}>
             <View style={styles.langToggle}>
@@ -146,7 +149,6 @@ const AdminSignupScreen = ({ navigation }: Props) => {
                       style={styles.input}
                       outlineColor={COLORS.border}
                       activeOutlineColor={COLORS.primary}
-                      right={<TextInput.Icon icon="chevron-right" />}
                     />
                   </TouchableOpacity>
                 }

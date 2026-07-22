@@ -69,7 +69,46 @@ const UsersScreen = ({ navigation }: Props) => {
     }
   }, [isFocused, viewMode]);
 
-  const handleDelete = (id: string) => {
+  const handleApprove = async (id: string) => {
+    try {
+      setLoading(true);
+      await apiClient.post(`/users/admins/${id}/approve`);
+      Alert.alert("Success", "Admin approved successfully");
+      fetchUsers(viewMode);
+    } catch (error: any) {
+      console.error(error);
+      Alert.alert("Error", error.response?.data?.message || "Failed to approve admin");
+      setLoading(false);
+    }
+  };
+
+  const handleReject = (id: string) => {
+    Alert.alert(
+      "Reject Admin",
+      "Are you sure you want to reject this admin request?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Reject", 
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await apiClient.post(`/users/admins/${id}/reject`);
+              Alert.alert("Success", "Admin rejected");
+              fetchUsers(viewMode);
+            } catch (error: any) {
+              console.error(error);
+              Alert.alert("Error", error.response?.data?.message || "Failed to reject admin");
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleDelete = (id: string, role: string) => {
     Alert.alert(
       "Delete User",
       "Are you sure you want to delete this user? This action cannot be undone.",
@@ -81,7 +120,12 @@ const UsersScreen = ({ navigation }: Props) => {
           onPress: async () => {
             try {
               setLoading(true);
-              await apiClient.delete(`/users/employees/${id}`); // Assuming API handles both, or we need different endpoint
+              // Currently backend has /employees/:id, if admin, we might need a different route or just reject
+              if (role === 'admin') {
+                 await apiClient.post(`/users/admins/${id}/reject`); // Also deletes them
+              } else {
+                 await apiClient.delete(`/users/employees/${id}`);
+              }
               Alert.alert("Success", "User deleted successfully");
               fetchUsers(viewMode);
             } catch (error: any) {
@@ -122,20 +166,34 @@ const UsersScreen = ({ navigation }: Props) => {
         <View style={styles.cardDivider} />
         
         <View style={styles.actionRow}>
-          <TouchableOpacity 
-            style={styles.changeRoleButton} 
-            activeOpacity={0.7}
-            onPress={() => Alert.alert('Info', 'Change role functionality pending.')}
-          >
-            <Text style={styles.changeRoleText}>Change role</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.deleteButton} 
-            activeOpacity={0.7}
-            onPress={() => handleDelete(item.id || item._id)}
-          >
-            <Text style={styles.deleteButtonText}>Delete</Text>
-          </TouchableOpacity>
+          {viewMode === 'pending' ? (
+            <>
+              <TouchableOpacity 
+                style={styles.approveButton} 
+                activeOpacity={0.7}
+                onPress={() => handleApprove(item.id || item._id)}
+              >
+                <Text style={styles.approveButtonText}>Approve</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.deleteButton} 
+                activeOpacity={0.7}
+                onPress={() => handleReject(item.id || item._id)}
+              >
+                <Text style={styles.deleteButtonText}>Reject</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TouchableOpacity 
+                style={styles.deleteButton} 
+                activeOpacity={0.7}
+                onPress={() => handleDelete(item.id || item._id, item.role)}
+              >
+                <Text style={styles.deleteButtonText}>Delete</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
     );
@@ -183,7 +241,9 @@ const UsersScreen = ({ navigation }: Props) => {
         >
           <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Home'); }} title="Home" />
           <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Search'); }} title="Search" />
-          <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('AddArticle'); }} title="Add article" />
+          {user?.role !== 'superadmin' && (
+            <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('AddArticle'); }} title="Add article" />
+          )}
           {user?.role !== 'employee' && (
             <Menu.Item onPress={() => { setMenuVisible(false); }} title="Users" />
           )}
@@ -400,6 +460,19 @@ const styles = StyleSheet.create({
   },
   deleteButtonText: {
     color: '#B91C1C',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  approveButton: {
+    flex: 1,
+    backgroundColor: '#DEF7EC',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  approveButtonText: {
+    color: '#03543F',
     fontWeight: 'bold',
     fontSize: 14,
   },
