@@ -6,7 +6,7 @@ const AppError = require('../utils/AppError');
 const { parsePagination, paginationMeta } = require('../utils/pagination');
 const { logAudit } = require('../utils/auditLogger');
 const { extractFieldsFromImage } = require('../services/vision.service');
-const { saveUploadedImage, deleteImagesForMedicines } = require('../services/uploads.service');
+const { saveUploadedImage, saveUploadedImages, deleteImagesForMedicines } = require('../services/uploads.service');
 const { createHash } = require('crypto');
 
 async function enrichWithCreator(medicines) {
@@ -36,12 +36,15 @@ async function verifyOwnership(med, user) {
 }
 
 exports.scanImage = asyncHandler(async (req, res) => {
-  if (!req.file) {
-    throw new AppError('Image file is required', 400);
+  if (!req.files || req.files.length === 0) {
+    throw new AppError('Image file(s) required', 400);
   }
 
-  const hash = createHash('sha256').update(req.file.buffer).digest('hex');
-  const existing = await Medicine.findByImageContentHash(hash);
+  const hash = createHash('sha256');
+  for (const f of req.files) hash.update(f.buffer);
+  const combinedHash = hash.digest('hex');
+  
+  const existing = await Medicine.findByImageContentHash(combinedHash);
   if (existing) {
     const e = new AppError('This document image was already scanned and saved previously.', 409);
     e.existingTag = existing.tag;
@@ -49,7 +52,7 @@ exports.scanImage = asyncHandler(async (req, res) => {
   }
 
   try {
-    const fields = await extractFieldsFromImage(req.file.buffer, req.file.mimetype);
+    const fields = await extractFieldsFromImage(req.files);
     
     await logAudit({
       userId: req.user.id,
@@ -72,12 +75,14 @@ exports.scanImage = asyncHandler(async (req, res) => {
 });
 
 exports.create = asyncHandler(async (req, res) => {
-  let imageUrl = req.body.imageUrl || null;
+  let imageUrls = [];
   let imageContentHash = null;
 
-  if (req.file) {
-    imageUrl = await saveUploadedImage(req.file, req);
-    imageContentHash = createHash('sha256').update(req.file.buffer).digest('hex');
+  if (req.files && req.files.length > 0) {
+    imageUrls = await saveUploadedImages(req.files, req);
+    const hash = createHash('sha256');
+    for (const f of req.files) hash.update(f.buffer);
+    imageContentHash = hash.digest('hex');
     
     if (imageContentHash) {
       const existing = await Medicine.findByImageContentHash(imageContentHash);
@@ -88,8 +93,9 @@ exports.create = asyncHandler(async (req, res) => {
   }
 
   const payload = { ...req.body };
-  if (imageUrl) {
-    payload.imageUrl = imageUrl;
+  if (imageUrls.length > 0) {
+    payload.imageUrls = imageUrls;
+    payload.imageUrl = imageUrls[0]; // For backwards compatibility if any client relies on this
     payload.imageContentHash = imageContentHash;
   }
   payload.createdBy = req.user.id;
@@ -126,28 +132,28 @@ exports.update = asyncHandler(async (req, res) => {
 
   await verifyOwnership(target, req.user);
 
-  let imageUrl = target.imageUrl;
+  let imageUrls = target.imageUrls || (target.imageUrl ? [target.imageUrl] : []);
   let imageContentHash = target.imageContentHash;
 
-  if (req.file) {
-    imageUrl = await saveUploadedImage(req.file, req);
-    imageContentHash = createHash('sha256').update(req.file.buffer).digest('hex');
-    if (target.imageUrl) {
+  if (req.files && req.files.length > 0) {
+    imageUrls = await saveUploadedImages(req.files, req);
+    const hash = createHash('sha256');
+    for (const f of req.files) hash.update(f.buffer);
+    imageContentHash = hash.digest('hex');
+    if (target.imageUrl || (target.imageUrls && target.imageUrls.length > 0)) {
       await deleteImagesForMedicines([target]);
     }
-  } else if (req.body.imageUrl !== undefined) {
-    imageUrl = req.body.imageUrl || null;
-    if (!imageUrl && target.imageUrl) {
-      await deleteImagesForMedicines([target]);
-      imageContentHash = null;
-    }
+  } else if (req.body.imageUrls !== undefined || req.body.imageUrl !== undefined) {
+    // Handling removal of images manually if needed.
+    // Assuming UI handles passing urls or omitting.
   }
 
   const next = {
     ...target,
     ...req.body,
     _id: target._id,
-    imageUrl,
+    imageUrls,
+    imageUrl: imageUrls.length > 0 ? imageUrls[0] : null,
     imageContentHash,
     updatedBy: req.user.id
   };

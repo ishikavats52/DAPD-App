@@ -127,7 +127,7 @@ const MedicineDetailScreen = ({ navigation, route }: Props) => {
 
     navigation.navigate('Verification', {
       extractedData,
-      imageUri: article.imageUrl || '',
+      imageUris: article.imageUrls || (article.imageUrl ? [article.imageUrl] : []),
       isEditMode: true,
       editId: article._id
     });
@@ -178,8 +178,14 @@ const MedicineDetailScreen = ({ navigation, route }: Props) => {
 
         {/* Image Preview Box */}
         <View style={styles.imagePreviewBox}>
-          {article.imageUrl ? (
-            <Image source={{ uri: article.imageUrl }} style={{ width: '100%', height: '100%', borderRadius: 8 }} />
+          {article.imageUrls && article.imageUrls.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {article.imageUrls.map((uri: string, index: number) => (
+                <Image key={index} source={{ uri: uri.replace('localhost', '10.0.2.2') }} style={{ width: 280, height: 200, borderRadius: 8, marginRight: 16 }} resizeMode="cover" />
+              ))}
+            </ScrollView>
+          ) : article.imageUrl ? (
+            <Image source={{ uri: article.imageUrl.replace('localhost', '10.0.2.2') }} style={{ width: '100%', height: 200, borderRadius: 8 }} resizeMode="cover" />
           ) : null}
         </View>
 

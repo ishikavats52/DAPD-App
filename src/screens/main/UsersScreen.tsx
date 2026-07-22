@@ -161,12 +161,14 @@ const UsersScreen = ({ navigation }: Props) => {
             </TouchableOpacity>
           )}
           
-          <TouchableOpacity 
-            onPress={() => navigation.navigate('AddEmployee')} 
-            style={styles.pillButton}
-          >
-            <Text style={styles.pillButtonText}>+ Add</Text>
-          </TouchableOpacity>
+          {user?.role !== 'employee' && (
+            <TouchableOpacity 
+              onPress={() => navigation.navigate('AddEmployee')} 
+              style={styles.pillButton}
+            >
+              <Text style={styles.pillButtonText}>+ Add</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <Menu
@@ -182,7 +184,9 @@ const UsersScreen = ({ navigation }: Props) => {
           <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Home'); }} title="Home" />
           <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Search'); }} title="Search" />
           <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('AddArticle'); }} title="Add article" />
-          <Menu.Item onPress={() => { setMenuVisible(false); }} title="Users" />
+          {user?.role !== 'employee' && (
+            <Menu.Item onPress={() => { setMenuVisible(false); }} title="Users" />
+          )}
           <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Profile'); }} title="Profile" />
           
           <Divider />

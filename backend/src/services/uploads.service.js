@@ -77,6 +77,15 @@ async function saveUploadedImage(file, req) {
   return saveToLocalDisk(file, req);
 }
 
+async function saveUploadedImages(files, req) {
+  if (!files || !Array.isArray(files)) return [];
+  const urls = [];
+  for (const file of files) {
+    urls.push(await saveUploadedImage(file, req));
+  }
+  return urls;
+}
+
 function localUploadBasenameFromImageUrl(url) {
   if (!url || typeof url !== 'string') return null;
   const s = url.trim();
@@ -94,9 +103,16 @@ function localUploadBasenameFromImageUrl(url) {
 function collectImageKeysFromMedicines(rows) {
   const keys = new Set();
   for (const m of rows) {
-    if (!m.imageUrl) continue;
-    const s3Key = keyFromImageUrl(m.imageUrl);
-    if (s3Key) keys.add(s3Key);
+    if (m.imageUrl) {
+      const s3Key = keyFromImageUrl(m.imageUrl);
+      if (s3Key) keys.add(s3Key);
+    }
+    if (m.imageUrls && Array.isArray(m.imageUrls)) {
+      for (const url of m.imageUrls) {
+        const s3Key = keyFromImageUrl(url);
+        if (s3Key) keys.add(s3Key);
+      }
+    }
   }
   return [...keys];
 }
@@ -110,12 +126,18 @@ async function deleteImagesForMedicines(rows) {
   const dir = UPLOADS_DIR;
   if (!fs.existsSync(dir)) return;
   for (const m of rows) {
-    const base = localUploadBasenameFromImageUrl(m.imageUrl);
-    if (!base) continue;
-    try {
-      fs.unlinkSync(path.join(dir, base));
-    } catch {
-      /* ignore missing files */
+    const urls = [];
+    if (m.imageUrl) urls.push(m.imageUrl);
+    if (m.imageUrls && Array.isArray(m.imageUrls)) urls.push(...m.imageUrls);
+    
+    for (const url of urls) {
+      const base = localUploadBasenameFromImageUrl(url);
+      if (!base) continue;
+      try {
+        fs.unlinkSync(path.join(dir, base));
+      } catch {
+        /* ignore missing files */
+      }
     }
   }
 }
@@ -142,6 +164,7 @@ async function deleteAllStoredImages() {
 
 module.exports = {
   saveUploadedImage,
+  saveUploadedImages,
   isS3Enabled,
   localUploadBasenameFromImageUrl,
   deleteImagesForMedicines,

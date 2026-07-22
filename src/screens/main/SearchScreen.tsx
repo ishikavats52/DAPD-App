@@ -22,7 +22,7 @@ type Medicine = {
 
 const SearchScreen = ({ navigation }: Props) => {
   const [menuVisible, setMenuVisible] = useState(false);
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [filterBy, setFilterBy] = useState<string>('Tag'); // 'Tag', 'Company name', 'Nomenclature'
@@ -30,20 +30,49 @@ const SearchScreen = ({ navigation }: Props) => {
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
-  const handleSearch = async () => {
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+
+  const handleSearch = async (isLoadMore = false) => {
     if (!searchQuery.trim()) return;
-    Keyboard.dismiss();
-    setLoading(true);
-    setHasSearched(true);
+    
+    if (isLoadMore === true) {
+      if (!hasMore || isFetchingMore) return;
+      setIsFetchingMore(true);
+    } else {
+      Keyboard.dismiss();
+      setLoading(true);
+      setHasSearched(true);
+    }
+    
     try {
-      // Pass the selected filter chip to the backend
-      const response = await apiClient.get(`/medicines/search?q=${encodeURIComponent(searchQuery)}&filterBy=${encodeURIComponent(filterBy)}`);
-      setMedicines(response.data.data || []);
+      const currentPage = isLoadMore === true ? page + 1 : 1;
+      const response = await apiClient.get(`/medicines/search?q=${encodeURIComponent(searchQuery)}&filterBy=${encodeURIComponent(filterBy)}&limit=15&page=${currentPage}`);
+      
+      const newData = response.data.data || [];
+      const totalPages = response.data.meta?.totalPages || 1;
+      
+      if (isLoadMore === true) {
+        setMedicines(prev => {
+          const newItems = newData.filter((newItem: Medicine) => !prev.some(item => item._id === newItem._id));
+          return [...prev, ...newItems];
+        });
+        setPage(currentPage);
+      } else {
+        setMedicines(newData);
+        setPage(1);
+      }
+      
+      setHasMore(currentPage < totalPages);
+      
     } catch (error) {
       console.error('Failed to search medicines', error);
-      setMedicines([]);
+      if (isLoadMore !== true) setMedicines([]);
     } finally {
       setLoading(false);
+      setIsFetchingMore(false);
     }
   };
 
@@ -86,10 +115,12 @@ const SearchScreen = ({ navigation }: Props) => {
           contentStyle={{ backgroundColor: COLORS.surface }}
         >
           <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Home'); }} title="Home" />
-          <Menu.Item onPress={() => { setMenuVisible(false); }} title="Search" />
+          <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Search'); }} title="Search" />
           <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('AddArticle'); }} title="Add article" />
-          <Menu.Item onPress={() => { setMenuVisible(false); }} title="Users" />
-          <Menu.Item onPress={() => { setMenuVisible(false); }} title="Profile" />
+          {user?.role !== 'employee' && (
+            <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Users'); }} title="Users" />
+          )}
+          <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Profile'); }} title="Profile" />
           <Menu.Item onPress={() => { setMenuVisible(false); signOut(); }} title="Logout" />
         </Menu>
       </Appbar.Header>
@@ -103,11 +134,11 @@ const SearchScreen = ({ navigation }: Props) => {
               placeholder="Search..."
               value={searchQuery}
               onChangeText={setSearchQuery}
-              onSubmitEditing={handleSearch}
+              onSubmitEditing={() => handleSearch(false)}
               returnKeyType="search"
             />
           </View>
-          <TouchableOpacity style={styles.goButton} onPress={handleSearch}>
+          <TouchableOpacity style={styles.goButton} onPress={() => handleSearch(false)}>
             <Text style={styles.goButtonText}>Go</Text>
           </TouchableOpacity>
         </View>
@@ -153,6 +184,13 @@ const SearchScreen = ({ navigation }: Props) => {
             renderItem={renderItem}
             contentContainerStyle={styles.listContainer}
             showsVerticalScrollIndicator={false}
+            onEndReached={() => handleSearch(true)}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={
+              isFetchingMore ? (
+                <ActivityIndicator size="small" color={COLORS.primary} style={{ padding: 16 }} />
+              ) : null
+            }
           />
         )}
       </View>

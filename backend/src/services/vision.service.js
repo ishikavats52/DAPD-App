@@ -2,6 +2,7 @@
 
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { ORGANISATION_VALUES } = require('../models/Medicine');
+const { numberToWords } = require('../utils/numberToWords');
 
 let sharp;
 try { sharp = require('sharp'); } catch { sharp = null; }
@@ -56,10 +57,10 @@ function isRetryableTransientError(err) {
 }
 
 function parseModelChain() {
-  const primary = process.env.GEMINI_MODEL?.trim() || 'gemini-2.5-flash';
+  const primary = process.env.GEMINI_MODEL?.trim() || 'gemini-3.5-flash';
   const rawFallbacks =
     process.env.GEMINI_MODEL_FALLBACKS?.trim() ||
-    'gemini-flash-lite-latest,gemini-flash-latest';
+    'gemini-3.5-flash,gemini-flash-latest';
   const fallbacks = rawFallbacks
     .split(',')
     .map((s) => s.trim())
@@ -78,7 +79,7 @@ function parseModelChain() {
 async function generateContentWithRetries(genai, modelName, parts) {
   const model = genai.getGenerativeModel(
     { model: modelName },
-    { apiVersion: 'v1beta', timeout: 45_000 }
+    { apiVersion: 'v1beta' }
   );
 
   const generationConfig = {
@@ -118,24 +119,26 @@ async function generateContentWithRetries(genai, modelName, parts) {
 
 const EXTRACTION_PROMPT = `You are processing an Indian government medicine supply or procurement document (GeM supply order, purchase order, or supply order).
 The document may contain bilingual text (Hindi and English). Read both scripts.
+If multiple images are provided, treat them as pages of a SINGLE continuous document.
 
-Extract ONLY the fields below. Return a single JSON object — no markdown, no explanation, no extra keys.
+Extract ONLY the fields below. Return exactly ONE JSON object combining all the extracted data from all images — no markdown, no explanation, no extra keys.
 
 Fields:
-- lineItems: array of objects, one per distinct medicine/item row in the order table. Each object: { "nomenclature": string (full name as printed), "lineTotal": number or null (that row's Basic Amount / line total in INR if shown; otherwise null), "quantity": number or string or null (ordered quantity for that row if shown) }. When the document lists multiple items, you MUST fill every row. When there is only one item row, you may return either a single-element lineItems array OR omit lineItems and use nomenclature only.
+- lineItems: array of objects, one per distinct medicine/item row in the order table. Each object: { "nomenclature": string (full name as printed), "unitPrice": number or null (price per single unit/item if shown), "lineTotal": number or null (that row's FINAL Tax-Inclusive Amount / line total with GST in INR if shown; otherwise null), "quantity": number or string or null (ordered quantity for that row if shown) }. When the document lists multiple items, you MUST fill every row. When there is only one item row, you may return either a single-element lineItems array OR omit lineItems and use nomenclature only.
 - nomenclature: for backward compatibility, the primary or first item name (string). If lineItems is present, this MUST match the first row's nomenclature. If only one line and you omit lineItems, fill this as today.
 - quantity: total number of units/items ordered in this supply order. Use the final "Ordered Quantity" or "Total Quantity" — NOT pack size, NOT unit quantity within a pack, NOT balance quantity, NOT received quantity (number, digits only). If each lineItems row has its own quantity and there is no single document total, sum the row quantities into this field.
-- totalValue: total base order value in INR — labeled "Total Value", "Order Value", "Basic Amount", or "Total Amount". If both pre-tax and tax-inclusive totals are present, use the pre-tax (basic) amount. Do NOT use unit rate or price per unit (number, digits only, no commas or currency symbols)
+- totalValue: total order value in INR. If both pre-tax and tax-inclusive totals are present, you MUST use the FINAL tax-inclusive amount (often labeled "Total Amount with GST", "Grand Total", or "Total Amount"). Do NOT use the pre-tax basic amount. (number, digits only, no commas or currency symbols)
 - gstExclusive: amount WITHOUT GST — labeled "Amount before GST", "Basic Amount", "Pre-tax Amount", or "Taxable Value". This is the amount on which GST is calculated. Strip commas and currency symbols (number, digits only, or null)
 - gstInclusive: amount WITH GST included — labeled "Amount after GST", "Total with Tax", "Tax-inclusive Amount", or "Gross Amount including GST". Strip commas and currency symbols (number, digits only, or null)
 - grandTotal: the final payable grand total — labeled "Grand Total", "Net Payable", "Total Payable", or "Total Amount Payable". This is the final amount after all taxes and charges. Strip commas and currency symbols (number, digits only, or null)
+- totalValueInWords: the final amount written in words — labeled "Rupees", "Amount in words", "Grand Total (in words)", or "Grand Total Cost (in words)" (string or null). Ensure you scan the entire document, especially footers, to extract this fully.
 - companyName: manufacturer or brand name of the medicine. In Indian government procurement documents this may be labeled "Contractor Name", "Supplier Name", "Brand Name", or "Manufacturer Name" — always save this value as companyName (string)
 - vendorName: seller or supplier company name — the entity delivering the goods (string)
 - location: city or storage/delivery location (string)
 - organisation: the buyer or consignee — the government hospital or unit RECEIVING the medicine (not the vendor/supplier). Return the organisation name exactly as it appears in the document (string)
 - supplyOrder: contract number, supply order number, or PO number (string)
 - supplyDate: contract or document date formatted as YYYY-MM-DD (string)
-- uoNumber: up to 15-character uppercase alphanumeric unit order number as a string (letters and digits only, e.g. "ABC123456789012"), or null
+- uoNumber: the unit order number (string or null). STRICT RULE: The alphabet letter (e.g., 'I', 'P', 'D') will always be in the middle at exactly the 8th position, with numbers on both sides (e.g., 7 digits, 1 letter, followed by more digits, like "1234567I1234567" or "1234567P890"). OCR can make mistakes, so if you see a letter 'I', 'O', 'S', or 'Z' in a numeric position on either side, assume it is '1', '0', '5', or '2'. If you see a digit '1' or '0' in the 8th position, assume it is the letter 'I' or 'O'.
 - narration: text from a "Narration", "Remarks", or "Special Instructions" section. Summarize this in max 2 sentences or extract up to 100 characters to save space. Do NOT extract the entire paragraph (string or null)
 
 Rules:
@@ -192,19 +195,42 @@ function matchOrganisation(text) {
 
 function safeParseJson(raw) {
   const text = String(raw || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  
+  const processParsed = (parsed) => {
+    if (parsed && Array.isArray(parsed)) {
+      // If it's an array of objects, take the first one (or merge them, but prompt says 1 object)
+      if (parsed.length > 0 && typeof parsed[0] === 'object') return parsed[0];
+      return null;
+    }
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  };
+
   try {
     const parsed = JSON.parse(text);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+    return processParsed(parsed);
   } catch {
     const start = text.indexOf('{');
     const end = text.lastIndexOf('}');
-    if (start === -1 || end <= start) return null;
-    try {
-      const parsed = JSON.parse(text.slice(start, end + 1));
-      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
-    } catch {
-      return null;
+    const arrStart = text.indexOf('[');
+    const arrEnd = text.lastIndexOf(']');
+    
+    if (start !== -1 && end > start) {
+      try {
+        const parsed = JSON.parse(text.slice(start, end + 1));
+        const obj = processParsed(parsed);
+        if (obj) return obj;
+      } catch {}
     }
+    
+    if (arrStart !== -1 && arrEnd > arrStart) {
+      try {
+        const parsed = JSON.parse(text.slice(arrStart, arrEnd + 1));
+        const obj = processParsed(parsed);
+        if (obj) return obj;
+      } catch {}
+    }
+    
+    return null;
   }
 }
 
@@ -230,6 +256,12 @@ function extractCleanedLineItems(raw) {
     const nom = String(row.nomenclature ?? row.name ?? '').trim();
     if (!nom || nom.toLowerCase() === 'null') continue;
     const entry = { nomenclature: nom };
+    
+    if (row.unitPrice != null && row.unitPrice !== '') {
+      const up = parseFloat(stripCurrencyNumber(String(row.unitPrice)));
+      if (Number.isFinite(up) && up >= 0) entry.unitPrice = roundMoney2(up);
+    }
+    
     if (row.lineTotal != null && row.lineTotal !== '') {
       const lt = parseFloat(stripCurrencyNumber(String(row.lineTotal)));
       if (Number.isFinite(lt) && lt >= 0) entry.lineTotal = roundMoney2(lt);
@@ -258,7 +290,7 @@ function normalizeFields(raw) {
   const cleanedLines = extractCleanedLineItems(raw);
   const out = {};
 
-  for (const key of ['companyName', 'vendorName', 'location', 'supplyOrder']) {
+  for (const key of ['companyName', 'vendorName', 'location', 'supplyOrder', 'totalValueInWords']) {
     const v = raw[key];
     if (v == null) continue;
     const t = String(v).trim();
@@ -342,12 +374,22 @@ function normalizeFields(raw) {
     if (clean.length >= 6 && clean.length <= 15) out.uoNumber = clean;
   }
 
+  if (!out.totalValueInWords && (out.totalValue || out.grandTotal)) {
+    const amount = out.grandTotal ? parseFloat(out.grandTotal) : parseFloat(out.totalValue);
+    if (Number.isFinite(amount)) {
+      const words = numberToWords(amount);
+      if (words) {
+        out.totalValueInWords = words;
+      }
+    }
+  }
+
   return out;
 }
 
-async function extractFieldsFromImage(buffer, mimetype) {
-  if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
-    throw new Error('Image buffer is empty or invalid');
+async function extractFieldsFromImage(files) {
+  if (!Array.isArray(files) || files.length === 0) {
+    throw new Error('Image files array is empty or invalid');
   }
 
   const apiKey = process.env.GEMINI_API_KEY?.trim();
@@ -358,17 +400,16 @@ async function extractFieldsFromImage(buffer, mimetype) {
   
   console.log("Gemini model chain:", modelChain);
 
-  const { buffer: imgBuf, mimetype: imgMime } = await resizeForGemini(buffer, mimetype);
-
-  const parts = [
-    {
+  const parts = [EXTRACTION_PROMPT];
+  for (const file of files) {
+    const { buffer: imgBuf, mimetype: imgMime } = await resizeForGemini(file.buffer, file.mimetype);
+    parts.push({
       inlineData: {
         data: imgBuf.toString('base64'),
         mimeType: imgMime || 'image/jpeg'
       }
-    },
-    EXTRACTION_PROMPT
-  ];
+    });
+  }
 
   let responseText = null;
   let lastErr = null;

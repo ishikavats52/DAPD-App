@@ -4,12 +4,13 @@ import { Text, TextInput, Button, Appbar, Surface } from 'react-native-paper';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { MainStackParamList } from '../../navigation/MainTabNavigator';
 import apiClient from '../../api/client';
+import * as SecureStore from 'expo-secure-store';
 import { COLORS } from '../../theme';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'Verification'>;
 
 const VerificationScreen = ({ route, navigation }: Props) => {
-  const { extractedData, imageUri, isEditMode, editId } = route.params || {};
+  const { extractedData, imageUris, isEditMode, editId } = route.params || {};
   
   const [loading, setLoading] = useState(false);
   
@@ -18,16 +19,16 @@ const VerificationScreen = ({ route, navigation }: Props) => {
     ? extractedData.lineItems.map((li: any) => ({
         nomenclature: li.nomenclature || '',
         quantity: li.quantity || '',
+        unitPrice: li.unitPrice ? String(li.unitPrice) : '',
         lineTotal: li.lineTotal ? String(li.lineTotal) : ''
       }))
-    : [{ nomenclature: extractedData?.nomenclature || '', quantity: extractedData?.quantity || '', lineTotal: '' }];
+    : [{ nomenclature: extractedData?.nomenclature || '', quantity: extractedData?.quantity || '', unitPrice: '', lineTotal: '' }];
 
   const [lineItems, setLineItems] = useState(initialLines);
 
   const [formData, setFormData] = useState({
     totalValue: extractedData?.totalValue || '',
-    totalValueInWords: '',
-    perUnitPrice: '',
+    totalValueInWords: extractedData?.totalValueInWords || '',
     uoNumber: extractedData?.uoNumber || '',
     companyName: extractedData?.companyName || '',
     location: extractedData?.location || '',
@@ -47,7 +48,7 @@ const VerificationScreen = ({ route, navigation }: Props) => {
   };
 
   const addLine = () => {
-    setLineItems([...lineItems, { nomenclature: '', quantity: '', lineTotal: '' }]);
+    setLineItems([...lineItems, { nomenclature: '', quantity: '', unitPrice: '', lineTotal: '' }]);
   };
 
   const handleSave = async () => {
@@ -68,12 +69,16 @@ const VerificationScreen = ({ route, navigation }: Props) => {
       
       const formPayload = new FormData();
       
-      if (imageUri && !imageUri.startsWith('http')) {
-        formPayload.append('image', {
-          uri: imageUri,
-          name: 'scanned_doc.jpg',
-          type: 'image/jpeg',
-        } as any);
+      if (imageUris && imageUris.length > 0) {
+        imageUris.forEach((uri: string, index: number) => {
+          if (!uri.startsWith('http')) {
+            formPayload.append('images', {
+              uri,
+              name: `scanned_doc_${index}.jpg`,
+              type: 'image/jpeg',
+            } as any);
+          }
+        });
       } else if (!isEditMode) {
         throw new Error("No image found to upload.");
       }
@@ -134,8 +139,12 @@ const VerificationScreen = ({ route, navigation }: Props) => {
           {/* Top Image Preview & Scan buttons */}
           <View style={styles.topActionsRow}>
             <View style={styles.imagePreviewBox}>
-              {imageUri ? (
-                <Image source={{ uri: imageUri }} style={{ width: '100%', height: '100%', borderRadius: 8 }} />
+              {imageUris && imageUris.length > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {imageUris.map((uri: string, index: number) => (
+                    <Image key={index} source={{ uri: uri.replace('localhost', '10.0.2.2') }} style={{ width: 120, height: '100%', borderRadius: 8, marginRight: 8 }} />
+                  ))}
+                </ScrollView>
               ) : null}
             </View>
             <View style={styles.topButtonsCol}>
@@ -158,6 +167,7 @@ const VerificationScreen = ({ route, navigation }: Props) => {
               <Text style={styles.reviewText}><Text style={styles.reviewLabel}>Total Value:</Text> {extractedData.totalValue ? `₹${extractedData.totalValue}` : 'N/A'}</Text>
               <Text style={styles.reviewText}><Text style={styles.reviewLabel}>Company:</Text> {extractedData.companyName || 'N/A'}</Text>
               <Text style={styles.reviewText}><Text style={styles.reviewLabel}>Location:</Text> {extractedData.location || 'N/A'}</Text>
+              <Text style={styles.reviewText}><Text style={styles.reviewLabel}>UO Number:</Text> {extractedData.uoNumber || 'N/A'}</Text>
               <Text style={styles.reviewText}><Text style={styles.reviewLabel}>Supply Order:</Text> {extractedData.supplyOrder || 'N/A'}</Text>
               <Text style={styles.reviewText}><Text style={styles.reviewLabel}>Supply Date:</Text> {extractedData.supplyDate || 'N/A'}</Text>
 
@@ -207,6 +217,17 @@ const VerificationScreen = ({ route, navigation }: Props) => {
                   activeOutlineColor="#1C2942"
                 />
 
+                <Text style={styles.inputLabel}>Unit Price (₹)</Text>
+                <TextInput
+                  value={item.unitPrice}
+                  onChangeText={(text) => handleLineChange(index, 'unitPrice', text)}
+                  keyboardType="numeric"
+                  mode="outlined"
+                  style={styles.input}
+                  outlineColor="#D0D0D0"
+                  activeOutlineColor="#1C2942"
+                />
+
                 <Text style={styles.inputLabel}>Amount (₹)</Text>
                 <TextInput
                   value={item.lineTotal}
@@ -245,17 +266,6 @@ const VerificationScreen = ({ route, navigation }: Props) => {
             activeOutlineColor="#1C2942"
           />
 
-          <TextInput
-            label="PER UNIT PRICE (₹)"
-            value={formData.perUnitPrice}
-            onChangeText={(text) => handleChange('perUnitPrice', text)}
-            keyboardType="numeric"
-            mode="outlined"
-            style={[styles.input, { marginTop: 8 }]}
-            outlineColor="#D0D0D0"
-            activeOutlineColor="#1C2942"
-            right={<TextInput.Icon icon="minus" />}
-          />
 
           <Text style={styles.inputLabel}>Total value in words</Text>
           <TextInput

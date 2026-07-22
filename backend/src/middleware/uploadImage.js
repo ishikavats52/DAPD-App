@@ -54,4 +54,29 @@ function uploadSingleImage(req, res, next) {
   });
 }
 
-module.exports = { uploadSingleImage };
+function uploadMultipleImages(req, res, next) {
+  upload.array('images', 10)(req, res, (err) => {
+    if (err) {
+      if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ message: 'One or more images are too large (max 5MB each)' });
+      }
+      if (err instanceof multer.MulterError && err.code === 'LIMIT_UNEXPECTED_FILE') {
+        return res.status(400).json({ message: 'Too many images uploaded (max 10 allowed) or wrong field name. Field name must be "images".' });
+      }
+      if (err.message === 'UNSUPPORTED_IMAGE_TYPE') {
+        return res.status(415).json({
+          message: 'Unsupported image type. Use JPEG, PNG, WebP, or HEIC.'
+        });
+      }
+      return next(err);
+    }
+    console.log('[uploadMultipleImages] req.body:', req.body);
+    console.log('[uploadMultipleImages] req.files:', req.files ? req.files.length : 0);
+    if ((!req.files || req.files.length === 0) && req.method !== 'PUT') {
+      return res.status(400).json({ message: 'At least one image file is required (field name: images)' });
+    }
+    return next();
+  });
+}
+
+module.exports = { uploadSingleImage, uploadMultipleImages };

@@ -8,6 +8,7 @@ import useAuth from '../../hooks/useAuth';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import apiClient from '../../api/client';
+import * as SecureStore from 'expo-secure-store';
 
 type Props = {
   navigation: NativeStackNavigationProp<MainStackParamList, 'AddArticle'>;
@@ -17,28 +18,34 @@ const AddArticleScreen = ({ navigation }: Props) => {
   const [menuVisible, setMenuVisible] = useState(false);
   const [scanModalVisible, setScanModalVisible] = useState(false);
   const [processing, setProcessing] = useState(false);
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
 
   const handleCamera = () => {
     setScanModalVisible(false);
     navigation.navigate('Scanner');
   };
 
-  const processImage = async (photoUri: string) => {
+  const processImages = async (photoUris: string[]) => {
     setProcessing(true);
     try {
-      const manipResult = await ImageManipulator.manipulateAsync(
-        photoUri,
-        [{ resize: { width: 1280 } }],
-        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
-      );
-
       const formData = new FormData();
-      formData.append('image', {
-        uri: manipResult.uri,
-        name: 'scan.jpg',
-        type: 'image/jpeg',
-      } as any);
+      const processedUris: string[] = [];
+
+      for (let i = 0; i < photoUris.length; i++) {
+        const photoUri = photoUris[i];
+        const manipResult = await ImageManipulator.manipulateAsync(
+          photoUri,
+          [{ resize: { width: 1280 } }],
+          { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+        );
+        processedUris.push(manipResult.uri);
+
+        formData.append('images', {
+          uri: manipResult.uri,
+          name: `scan_${i}.jpg`,
+          type: 'image/jpeg',
+        } as any);
+      }
 
       const response = await apiClient.post('/medicines/scan-image', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -48,7 +55,7 @@ const AddArticleScreen = ({ navigation }: Props) => {
       
       navigation.navigate('Verification', { 
         extractedData, 
-        imageUri: manipResult.uri 
+        imageUris: processedUris
       });
     } catch (error: any) {
       console.error(error);
@@ -69,13 +76,15 @@ const AddArticleScreen = ({ navigation }: Props) => {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
+      allowsMultipleSelection: true,
       allowsEditing: false,
       quality: 1,
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      await processImage(result.assets[0].uri);
+      const uris = result.assets.map(asset => asset.uri);
+      await processImages(uris);
     }
   };
 
@@ -100,10 +109,12 @@ const AddArticleScreen = ({ navigation }: Props) => {
           contentStyle={{ backgroundColor: COLORS.surface }}
         >
           <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Home'); }} title="Home" />
-          <Menu.Item onPress={() => { setMenuVisible(false); }} title="Search" />
-          <Menu.Item onPress={() => { setMenuVisible(false); }} title="Add article" />
-          <Menu.Item onPress={() => { setMenuVisible(false); }} title="Users" />
-          <Menu.Item onPress={() => { setMenuVisible(false); }} title="Profile" />
+          <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Search'); }} title="Search" />
+          <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('AddArticle'); }} title="Add article" />
+          {user?.role !== 'employee' && (
+            <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Users'); }} title="Users" />
+          )}
+          <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Profile'); }} title="Profile" />
           <Menu.Item onPress={() => { setMenuVisible(false); signOut(); }} title="Logout" />
         </Menu>
       </Appbar.Header>
@@ -121,7 +132,7 @@ const AddArticleScreen = ({ navigation }: Props) => {
 
         <TouchableOpacity 
           style={styles.actionButton}
-          onPress={() => navigation.navigate('Verification', { extractedData: {}, imageUri: '' })}
+          onPress={() => navigation.navigate('Verification', { extractedData: {}, imageUris: [] })}
           disabled={processing}
         >
           <Text style={styles.actionButtonText}>Enter Manually</Text>

@@ -10,7 +10,7 @@ export type MainStackParamList = {
   Home: undefined;
   AddArticle: undefined;
   Scanner: undefined;
-  Verification: { extractedData: any; imageUri: string; isEditMode?: boolean; editId?: string };
+  Verification: { extractedData: any; imageUris: string[]; isEditMode?: boolean; editId?: string };
   MedicineDetail: { id: string };
   Search: undefined;
   Profile: undefined;

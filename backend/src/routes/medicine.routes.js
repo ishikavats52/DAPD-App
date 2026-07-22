@@ -3,7 +3,7 @@ const auth = require('../middleware/auth');
 const authorize = require('../middleware/authorize');
 const { ROLES_ALL } = require('../constants/roles');
 const requirePasswordCurrent = require('../middleware/requirePasswordCurrent');
-const { uploadSingleImage } = require('../middleware/uploadImage');
+const { uploadMultipleImages } = require('../middleware/uploadImage');
 const MedicineController = require('../controllers/medicine.controller');
 const {
   createRules,
@@ -29,13 +29,13 @@ router.use(requirePasswordCurrent);
 
 router.post(
   '/scan-image',
-  uploadSingleImage,
+  uploadMultipleImages,
   MedicineController.scanImage
 );
 
 router.post(
   '/',
-  uploadSingleImage, // form-data if they upload image here directly
+  uploadMultipleImages, // form-data if they upload image here directly
   createRules,
   validate,
   MedicineController.create
@@ -43,7 +43,7 @@ router.post(
 
 router.put(
   '/:id',
-  uploadSingleImage,
+  uploadMultipleImages,
   updateRules,
   validate,
   MedicineController.update

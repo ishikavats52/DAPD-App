@@ -24,25 +24,57 @@ const HomeScreen = ({ navigation }: Props) => {
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [loading, setLoading] = useState(true);
   const [menuVisible, setMenuVisible] = useState(false);
+  
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  
   const { signOut, user } = useAuth();
 
-  const fetchMedicines = useCallback(async () => {
+  const fetchMedicines = async (isLoadMore = false) => {
     try {
-      setLoading(true);
-      const response = await apiClient.get('/medicines?limit=50');
-      setMedicines(response.data.data || []);
+      if (isLoadMore) {
+        if (!hasMore || isFetchingMore) return;
+        setIsFetchingMore(true);
+      } else {
+        setLoading(true);
+      }
+
+      const currentPage = isLoadMore ? page + 1 : 1;
+      const response = await apiClient.get(`/medicines?limit=15&page=${currentPage}`);
+      
+      const newData = response.data.data || [];
+      const totalPages = response.data.meta?.totalPages || 1;
+      
+      if (isLoadMore) {
+        setMedicines(prev => {
+          const newItems = newData.filter((newItem: Medicine) => !prev.some(item => item._id === newItem._id));
+          return [...prev, ...newItems];
+        });
+        setPage(currentPage);
+      } else {
+        setMedicines(newData);
+        setPage(1);
+      }
+      
+      setHasMore(currentPage < totalPages);
+      
     } catch (error) {
       console.error('Failed to fetch medicines', error);
     } finally {
       setLoading(false);
+      setIsFetchingMore(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
     fetchMedicines();
-    const unsubscribe = navigation.addListener('focus', fetchMedicines);
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchMedicines(false);
+    });
     return unsubscribe;
-  }, [navigation, fetchMedicines]);
+  }, [navigation]);
 
   const renderItem = ({ item }: { item: Medicine }) => {
     const price = item.totalValue ? `₹${item.totalValue}/unit` : 'N/A';
@@ -82,10 +114,12 @@ const HomeScreen = ({ navigation }: Props) => {
           }
           contentStyle={{ backgroundColor: COLORS.surface }}
         >
-          <Menu.Item onPress={() => { setMenuVisible(false); }} title="Home" />
+          <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Home'); }} title="Home" />
           <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Search'); }} title="Search" />
           <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('AddArticle'); }} title="Add article" />
-          <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Users'); }} title="Users" />
+          {user?.role !== 'employee' && (
+            <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Users'); }} title="Users" />
+          )}
           <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Profile'); }} title="Profile" />
           <Menu.Item onPress={() => { setMenuVisible(false); signOut(); }} title="Logout" />
         </Menu>
@@ -131,6 +165,13 @@ const HomeScreen = ({ navigation }: Props) => {
             renderItem={renderItem}
             contentContainerStyle={styles.listContainer}
             showsVerticalScrollIndicator={false}
+            onEndReached={() => fetchMedicines(true)}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={
+              isFetchingMore ? (
+                <ActivityIndicator size="small" color={COLORS.primary} style={{ padding: 16 }} />
+              ) : null
+            }
           />
         )}
       </View>

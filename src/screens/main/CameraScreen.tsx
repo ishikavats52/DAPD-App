@@ -6,6 +6,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '../../navigation/MainTabNavigator';
 import apiClient from '../../api/client';
 import * as ImageManipulator from 'expo-image-manipulator';
+import * as SecureStore from 'expo-secure-store';
 
 type Props = {
   navigation: NativeStackNavigationProp<MainStackParamList, 'Scanner'>;
@@ -14,7 +15,7 @@ type Props = {
 const CameraScreen = ({ navigation }: Props) => {
   const [permission, requestPermission] = useCameraPermissions();
   const [loading, setLoading] = useState(false);
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photoUris, setPhotoUris] = useState<string[]>([]);
   const cameraRef = useRef<CameraView>(null);
   const theme = useTheme();
 
@@ -40,7 +41,7 @@ const CameraScreen = ({ navigation }: Props) => {
       try {
         const photo = await cameraRef.current.takePictureAsync();
         if (photo) {
-          setPhotoUri(photo.uri);
+          setPhotoUris(prev => [...prev, photo.uri]);
         }
       } catch (error) {
         Alert.alert('Error', 'Failed to capture image');
@@ -48,42 +49,44 @@ const CameraScreen = ({ navigation }: Props) => {
     }
   };
 
-  const processImage = async () => {
-    if (!photoUri) return;
+  const processImages = async () => {
+    if (photoUris.length === 0) return;
     
     setLoading(true);
     try {
-      // Compress image before upload
-      const manipResult = await ImageManipulator.manipulateAsync(
-        photoUri,
-        [{ resize: { width: 1280 } }],
-        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
-      );
-
       const formData = new FormData();
-      formData.append('image', {
-        uri: manipResult.uri,
-        name: 'scan.jpg',
-        type: 'image/jpeg',
-      } as any);
-
+      
+      const compressedUris = [];
+      for (let i = 0; i < photoUris.length; i++) {
+        const manipResult = await ImageManipulator.manipulateAsync(
+          photoUris[i],
+          [{ resize: { width: 1280 } }],
+          { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+        );
+        compressedUris.push(manipResult.uri);
+        
+        formData.append('images', {
+          uri: manipResult.uri,
+          name: `scan_${i}.jpg`,
+          type: 'image/jpeg',
+        } as any);
+      }
+      
       const response = await apiClient.post('/medicines/scan-image', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      // The backend uses Gemini to parse fields. 
       const extractedData = response.data.extractedData || response.data.fields || response.data;
       
       navigation.replace('Verification', { 
         extractedData, 
-        imageUri: manipResult.uri 
+        imageUris: compressedUris
       });
 
     } catch (error: any) {
       console.error(error);
-      const message = error.response?.data?.message || 'Failed to process document';
+      const message = error.response?.data?.message || 'Failed to process documents';
       Alert.alert('Scan Failed', message);
-      setPhotoUri(null); // Reset to try again
     } finally {
       setLoading(false);
     }
@@ -93,63 +96,61 @@ const CameraScreen = ({ navigation }: Props) => {
     <View style={styles.container}>
       <Appbar.Header style={{ backgroundColor: theme.colors.surface }}>
         <Appbar.BackAction onPress={() => navigation.goBack()} />
-        <Appbar.Content title={photoUri ? "Confirm Photo" : "Scan Document"} />
+        <Appbar.Content title={photoUris.length > 0 ? `Captured: ${photoUris.length}` : "Scan Document"} />
       </Appbar.Header>
 
       <View style={styles.content}>
-        {photoUri ? (
-          <View style={styles.previewContainer}>
-            <Image source={{ uri: photoUri }} style={styles.preview} resizeMode="contain" />
-            {loading && (
-              <View style={styles.loadingOverlay}>
-                <ActivityIndicator size="large" color="#fff" />
-                <Text style={styles.loadingText}>Analyzing document with Gemini AI...</Text>
-              </View>
-            )}
+        <CameraView 
+          style={styles.camera} 
+          facing="back"
+          ref={cameraRef}
+        >
+          <View style={styles.overlay}>
+            <View style={styles.frame} />
+            <Text style={styles.instructions}>Align document within the frame</Text>
           </View>
-        ) : (
-          <CameraView 
-            style={styles.camera} 
-            facing="back"
-            ref={cameraRef}
-          >
-            <View style={styles.overlay}>
-              <View style={styles.frame} />
-              <Text style={styles.instructions}>Align document within the frame</Text>
-            </View>
-          </CameraView>
+        </CameraView>
+        {loading && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#fff" />
+            <Text style={styles.loadingText}>Analyzing document with Gemini AI...</Text>
+          </View>
         )}
       </View>
 
       <View style={styles.footer}>
-        {photoUri ? (
-          <>
+        <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
+          {photoUris.length > 0 ? (
             <Button 
               mode="outlined" 
-              onPress={() => setPhotoUri(null)}
+              onPress={() => setPhotoUris([])}
               disabled={loading}
               style={{ flex: 1, marginRight: 8 }}
             >
-              Retake
+              Clear All
             </Button>
+          ) : <View style={{ flex: 1 }} />}
+          
+          <TouchableOpacity 
+            style={styles.captureButtonOuter} 
+            onPress={takePicture}
+            disabled={loading}
+          >
+            <View style={[styles.captureButtonInner, { backgroundColor: theme.colors.primary }]} />
+          </TouchableOpacity>
+
+          {photoUris.length > 0 ? (
             <Button 
               mode="contained" 
-              onPress={processImage}
+              onPress={processImages}
               loading={loading}
               disabled={loading}
               style={{ flex: 1, marginLeft: 8 }}
             >
               Process
             </Button>
-          </>
-        ) : (
-          <TouchableOpacity 
-            style={styles.captureButtonOuter} 
-            onPress={takePicture}
-          >
-            <View style={[styles.captureButtonInner, { backgroundColor: theme.colors.primary }]} />
-          </TouchableOpacity>
-        )}
+          ) : <View style={{ flex: 1 }} />}
+        </View>
       </View>
     </View>
   );

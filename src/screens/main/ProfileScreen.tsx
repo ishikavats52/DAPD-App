@@ -104,13 +104,15 @@ const ProfileScreen = ({ navigation }: Props) => {
         <Text style={styles.sectionTitle}>ACTIONS</Text>
         
         {/* Manage Users Card */}
-        <TouchableOpacity style={styles.actionCard} activeOpacity={0.7} onPress={() => navigation.navigate('Users')}>
-          <View style={styles.actionIconBox}>
-            <Text style={styles.actionIconText}>U</Text>
-          </View>
-          <Text style={styles.actionCardText}>Manage Users</Text>
-          <Text style={styles.chevron}>›</Text>
-        </TouchableOpacity>
+        {user?.role !== 'employee' && (
+          <TouchableOpacity style={styles.actionCard} activeOpacity={0.7} onPress={() => navigation.navigate('Users')}>
+            <View style={styles.actionIconBox}>
+              <Text style={styles.actionIconText}>U</Text>
+            </View>
+            <Text style={styles.actionCardText}>Manage Users</Text>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Change Password Button */}
         <TouchableOpacity style={styles.outlineButton} activeOpacity={0.7}>

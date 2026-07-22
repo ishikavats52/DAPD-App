@@ -179,9 +179,10 @@ async function stripAllImages() {
   const rows = await scanAllMedicines();
   const ts = nowIso();
   for (const m of rows) {
-    if (!m.imageUrl && !m.imageContentHash) continue;
+    if (!m.imageUrl && !m.imageContentHash && (!m.imageUrls || m.imageUrls.length === 0)) continue;
     const next = { ...m, updatedAt: ts };
     delete next.imageUrl;
+    delete next.imageUrls;
     delete next.imageContentHash;
     await putMedicine(next);
   }
