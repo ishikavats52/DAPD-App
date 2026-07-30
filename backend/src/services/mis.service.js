@@ -7,7 +7,7 @@ async function generateMISReportFromAI(records, userQuery) {
   if (!apiKey) throw new Error('GEMINI_API_KEY is not configured');
 
   const genai = new GoogleGenerativeAI(apiKey);
-  const modelName = process.env.GEMINI_MODEL?.trim() || 'gemini-2.5-flash-lite';
+  const modelName = process.env.GEMINI_MODEL?.trim() || 'gemini-1.5-flash';
   const model = genai.getGenerativeModel({ model: modelName }, { apiVersion: 'v1beta' });
 
   const prompt = `You are a military procurement analytics assistant. You are given a list of database records for historical purchases and a query from the user.
