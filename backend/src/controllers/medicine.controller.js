@@ -7,6 +7,8 @@ const { parsePagination, paginationMeta } = require('../utils/pagination');
 const { logAudit } = require('../utils/auditLogger');
 const { extractFieldsFromImage } = require('../services/vision.service');
 const { saveUploadedImage, saveUploadedImages, deleteImagesForMedicines } = require('../services/uploads.service');
+const { getPresignedUrlForImage, keyFromImageUrl } = require('../services/s3.service');
+const { generateMISReportFromAI } = require('../services/mis.service');
 const { createHash } = require('crypto');
 
 async function enrichWithCreator(medicines) {
@@ -15,13 +17,34 @@ async function enrichWithCreator(medicines) {
   const users = await User.batchGetByIds(userIds);
   const userMap = new Map(users.map((u) => [u._id, User.toPublicUser(u)]));
   
-  return medicines.map((m) => {
+  return Promise.all(medicines.map(async (m) => {
     const out = { ...m };
     if (out.createdBy && userMap.has(out.createdBy)) {
       out.creator = userMap.get(out.createdBy);
     }
+    
+    // Replace S3 URLs with presigned URLs for secure access
+    if (out.imageUrls && Array.isArray(out.imageUrls)) {
+      out.imageUrls = await Promise.all(out.imageUrls.map(async (url) => {
+        const key = keyFromImageUrl(url);
+        if (key) {
+          const presigned = await getPresignedUrlForImage(key);
+          return presigned || url;
+        }
+        return url;
+      }));
+    }
+    
+    if (out.imageUrl) {
+      const key = keyFromImageUrl(out.imageUrl);
+      if (key) {
+         const presigned = await getPresignedUrlForImage(key);
+         out.imageUrl = presigned || out.imageUrl;
+      }
+    }
+    
     return out;
-  });
+  }));
 }
 
 function resolveScope(user) {
@@ -71,6 +94,48 @@ exports.scanImage = asyncHandler(async (req, res) => {
       throw new AppError('Google Gemini AI is currently overloaded (Too Many Requests). Please try again in a few moments.', 429);
     }
     throw new AppError(error.message || 'Failed to process document image', 500);
+  }
+});
+
+exports.searchByScan = asyncHandler(async (req, res) => {
+  if (!req.files || req.files.length === 0) {
+    throw new AppError('Image file(s) required', 400);
+  }
+
+  const hash = createHash('sha256');
+  for (const f of req.files) hash.update(f.buffer);
+  const combinedHash = hash.digest('hex');
+  
+  const existing = await Medicine.findByImageContentHash(combinedHash);
+  if (existing) {
+    return res.json({
+      exactMatch: true,
+      tag: existing.tag,
+      message: 'Found exact image match'
+    });
+  }
+
+  try {
+    const fields = await extractFieldsFromImage(req.files);
+    
+    await logAudit({
+      userId: req.user.id,
+      action: 'SEARCH_BY_SCAN',
+      resource: 'Medicine',
+      req
+    });
+
+    res.json({
+      exactMatch: false,
+      extractedFields: fields,
+      message: 'Extraction successful for search'
+    });
+  } catch (error) {
+    console.error('Scan search error:', error);
+    if (error.status === 429 || String(error.message).includes('429')) {
+      throw new AppError('Google Gemini AI is currently overloaded (Too Many Requests). Please try again in a few moments.', 429);
+    }
+    throw new AppError(error.message || 'Failed to process document image for search', 500);
   }
 });
 
@@ -267,4 +332,48 @@ exports.getOne = asyncHandler(async (req, res) => {
   const [enriched] = await enrichWithCreator([med]);
   
   res.json({ data: enriched });
+});
+
+exports.generateMISReport = asyncHandler(async (req, res) => {
+  const { query, organisation } = req.body;
+  if (!query) {
+    throw new AppError('Query is required to generate MIS report', 400);
+  }
+
+  // Fetch all active medicines
+  const all = await Medicine.scanAllMedicines();
+  const active = all.filter((m) => m.isActive !== false);
+
+  const q = String(query).trim().toLowerCase();
+  const org = String(organisation || '').trim();
+
+  const filtered = active.filter((m) => {
+    // Match search term
+    const matchesQuery = 
+      !q ||
+      (m.nomenclature && m.nomenclature.toLowerCase().includes(q)) ||
+      (m.companyName && m.companyName.toLowerCase().includes(q)) ||
+      (m.tag && m.tag.toLowerCase().includes(q));
+
+    // Match organisation filter
+    const matchesOrg = !org || m.organisation === org;
+
+    return matchesQuery && matchesOrg;
+  });
+
+  // Call Gemini MIS Service
+  const report = await generateMISReportFromAI(filtered, query);
+
+  // Log audit action
+  await logAudit({
+    userId: req.user.id,
+    action: 'GENERATE_MIS_REPORT',
+    resource: 'Medicine',
+    req
+  });
+
+  res.json({
+    message: 'MIS report generated successfully',
+    report
+  });
 });

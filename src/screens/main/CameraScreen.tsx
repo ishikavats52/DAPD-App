@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, Alert, Image } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Alert, Image, ScrollView, Dimensions } from 'react-native';
 import { Text, ActivityIndicator, Appbar, useTheme, Button } from 'react-native-paper';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -96,21 +96,34 @@ const CameraScreen = ({ navigation }: Props) => {
     <View style={styles.container}>
       <Appbar.Header style={{ backgroundColor: theme.colors.surface }}>
         <Appbar.BackAction onPress={() => navigation.goBack()} />
-        <Appbar.Content title={photoUris.length > 0 ? `Captured: ${photoUris.length}` : "Scan Document"} />
+        <Appbar.Content title={photoUris.length > 0 ? `Preview (${photoUris.length})` : "Scan Document"} />
       </Appbar.Header>
 
       <View style={styles.content}>
-        <CameraView
-          style={styles.camera}
-          facing="back"
-          ref={cameraRef}
-        >
-          <View style={styles.cameraUI}>
-            <View style={styles.instructionPill}>
-              <Text style={styles.instructions}>Position document clearly in view</Text>
+        {photoUris.length > 0 ? (
+          <ScrollView horizontal pagingEnabled style={{ flex: 1, backgroundColor: '#000' }}>
+            {photoUris.map((uri, index) => (
+              <Image 
+                key={index} 
+                source={{ uri }} 
+                style={{ width: Dimensions.get('window').width, height: '100%' }} 
+                resizeMode="contain" 
+              />
+            ))}
+          </ScrollView>
+        ) : (
+          <CameraView
+            style={styles.camera}
+            facing="back"
+            ref={cameraRef}
+          >
+            <View style={styles.cameraUI}>
+              <View style={styles.instructionPill}>
+                <Text style={styles.instructions}>Position document clearly in view</Text>
+              </View>
             </View>
-          </View>
-        </CameraView>
+          </CameraView>
+        )}
         {loading && (
           <View style={styles.loadingOverlay}>
             <View style={styles.loadingCard}>

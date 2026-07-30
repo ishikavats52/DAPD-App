@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, Modal, SafeAreaView } from 'react-native';
 import { Text, Appbar, Menu, ActivityIndicator, Button } from 'react-native-paper';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
@@ -19,11 +19,20 @@ type Props = {
 
 const MedicineDetailScreen = ({ navigation, route }: Props) => {
   const { id } = route.params;
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   
   const [menuVisible, setMenuVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [article, setArticle] = useState<any>(null);
+  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+
+  const getCorrectImageUrl = (uri: string) => {
+    if (!uri) return uri;
+    const baseURL = apiClient.defaults.baseURL || 'http://13.201.87.28:5050/api';
+    const match = baseURL.match(/https?:\/\/([^:/]+)/);
+    const host = match ? match[1] : '13.201.87.28';
+    return uri.replace('localhost', host).replace('10.0.2.2', host);
+  };
 
   useEffect(() => {
     const fetchArticle = async () => {
@@ -181,13 +190,31 @@ const MedicineDetailScreen = ({ navigation, route }: Props) => {
         {/* Image Preview Box */}
         <View style={styles.imagePreviewBox}>
           {article.imageUrls && article.imageUrls.length > 0 ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {article.imageUrls.map((uri: string, index: number) => (
-                <Image key={index} source={{ uri: uri.replace('localhost', '10.0.2.2') }} style={{ width: 280, height: 200, borderRadius: 8, marginRight: 16 }} resizeMode="cover" />
-              ))}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ padding: 8 }}>
+              {article.imageUrls.map((uri: string, index: number) => {
+                const finalUri = getCorrectImageUrl(uri);
+                console.log('Loading image URI:', finalUri);
+                return (
+                  <TouchableOpacity key={index} onPress={() => setFullScreenImage(finalUri)}>
+                    <Image 
+                      source={{ uri: finalUri }} 
+                      style={{ width: 280, height: 182, borderRadius: 8, marginRight: 16 }} 
+                      resizeMode="cover" 
+                      onError={(e) => console.log('Image load error for', finalUri, e.nativeEvent.error)}
+                    />
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           ) : article.imageUrl ? (
-            <Image source={{ uri: article.imageUrl.replace('localhost', '10.0.2.2') }} style={{ width: '100%', height: 200, borderRadius: 8 }} resizeMode="cover" />
+            <TouchableOpacity onPress={() => setFullScreenImage(getCorrectImageUrl(article.imageUrl))} style={{ flex: 1, padding: 8 }}>
+              <Image 
+                source={{ uri: getCorrectImageUrl(article.imageUrl) }} 
+                style={{ width: '100%', height: '100%', borderRadius: 8 }} 
+                resizeMode="cover"
+                onError={(e) => console.log('Image load error for', getCorrectImageUrl(article.imageUrl), e.nativeEvent.error)} 
+              />
+            </TouchableOpacity>
           ) : null}
         </View>
 
@@ -283,6 +310,18 @@ const MedicineDetailScreen = ({ navigation, route }: Props) => {
           Government of India · Ministry of Defence · v1.0.0
         </Text>
       </View>
+
+      {/* Full Screen Image Modal */}
+      <Modal visible={!!fullScreenImage} transparent={true} animationType="fade" onRequestClose={() => setFullScreenImage(null)}>
+        <SafeAreaView style={styles.fullScreenModal}>
+          <TouchableOpacity style={styles.closeButton} onPress={() => setFullScreenImage(null)}>
+            <Text style={styles.closeButtonText}>Close</Text>
+          </TouchableOpacity>
+          {fullScreenImage && (
+            <Image source={{ uri: fullScreenImage }} style={styles.fullScreenImage} resizeMode="contain" />
+          )}
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 };
@@ -420,6 +459,29 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 12,
     color: COLORS.textSecondary,
+  },
+  fullScreenModal: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+  },
+  fullScreenImage: {
+    width: '100%',
+    height: '100%',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 10,
+    padding: 10,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 8,
+  },
+  closeButtonText: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
 

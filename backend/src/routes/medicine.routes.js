@@ -23,6 +23,7 @@ router.get('/', listRules, validate, MedicineController.listActive);
 router.get('/search', searchRules, validate, MedicineController.searchActive);
 router.get('/by-tag/:tag', tagParamRules, validate, MedicineController.getByTag);
 router.get('/:id', getOneParamRules, validate, MedicineController.getOne);
+router.post('/generate-mis', MedicineController.generateMISReport);
 
 // Write routes
 router.use(requirePasswordCurrent);
@@ -31,6 +32,12 @@ router.post(
   '/scan-image',
   uploadMultipleImages,
   MedicineController.scanImage
+);
+
+router.post(
+  '/scan-search',
+  uploadMultipleImages,
+  MedicineController.searchByScan
 );
 
 router.post(

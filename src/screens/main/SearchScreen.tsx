@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Image, FlatList, TextInput, Keyboard } from 'react-native';
 import { Text, Appbar, Menu, Card, ActivityIndicator, Chip } from 'react-native-paper';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -6,9 +6,13 @@ import { MainStackParamList } from '../../navigation/MainTabNavigator';
 import { COLORS } from '../../theme';
 import useAuth from '../../hooks/useAuth';
 import apiClient from '../../api/client';
+import { Ionicons } from '@expo/vector-icons';
+
+import { RouteProp } from '@react-navigation/native';
 
 type Props = {
   navigation: NativeStackNavigationProp<MainStackParamList, 'Search'>;
+  route: RouteProp<MainStackParamList, 'Search'>;
 };
 
 type Medicine = {
@@ -20,7 +24,7 @@ type Medicine = {
   createdAt: string;
 };
 
-const SearchScreen = ({ navigation }: Props) => {
+const SearchScreen = ({ navigation, route }: Props) => {
   const [menuVisible, setMenuVisible] = useState(false);
   const { user, signOut } = useAuth();
   
@@ -35,8 +39,26 @@ const SearchScreen = ({ navigation }: Props) => {
   const [hasMore, setHasMore] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
 
-  const handleSearch = async (isLoadMore = false) => {
-    if (!searchQuery.trim()) return;
+  useEffect(() => {
+    if (route.params?.exactMatchTag || route.params?.initialQuery) {
+      const q = route.params.exactMatchTag || route.params.initialQuery || '';
+      const f = route.params.exactMatchTag ? 'Tag' : (route.params.initialFilter || 'Tag');
+      
+      setSearchQuery(q);
+      setFilterBy(f);
+      
+      handleSearch(false, q, f);
+
+      // Clear the params so it doesn't re-trigger unintentionally
+      navigation.setParams({ exactMatchTag: undefined, initialQuery: undefined, initialFilter: undefined });
+    }
+  }, [route.params?.exactMatchTag, route.params?.initialQuery]);
+
+  const handleSearch = async (isLoadMore = false, overrideQuery?: string, overrideFilter?: string) => {
+    const queryToUse = overrideQuery !== undefined ? overrideQuery : searchQuery;
+    const filterToUse = overrideFilter !== undefined ? overrideFilter : filterBy;
+
+    if (!queryToUse.trim()) return;
     
     if (isLoadMore === true) {
       if (!hasMore || isFetchingMore) return;
@@ -49,7 +71,7 @@ const SearchScreen = ({ navigation }: Props) => {
     
     try {
       const currentPage = isLoadMore === true ? page + 1 : 1;
-      const response = await apiClient.get(`/medicines/search?q=${encodeURIComponent(searchQuery)}&filterBy=${encodeURIComponent(filterBy)}&limit=15&page=${currentPage}`);
+      const response = await apiClient.get(`/medicines/search?q=${encodeURIComponent(queryToUse)}&filterBy=${encodeURIComponent(filterToUse)}&limit=15&page=${currentPage}`);
       
       const newData = response.data.data || [];
       const totalPages = response.data.meta?.totalPages || 1;
@@ -130,7 +152,7 @@ const SearchScreen = ({ navigation }: Props) => {
       <View style={styles.searchSection}>
         <View style={styles.searchBarContainer}>
           <View style={styles.inputWrapper}>
-            <Text style={styles.searchIcon}>🔍</Text>
+            <Ionicons name="search" size={20} color={COLORS.textSecondary} style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
               placeholder="Search..."
@@ -139,6 +161,9 @@ const SearchScreen = ({ navigation }: Props) => {
               onSubmitEditing={() => handleSearch(false)}
               returnKeyType="search"
             />
+            <TouchableOpacity onPress={() => navigation.navigate('Scanner', { mode: 'search' })} style={{ padding: 4 }}>
+              <Ionicons name="camera" size={24} color={COLORS.primary} />
+            </TouchableOpacity>
           </View>
           <TouchableOpacity style={styles.goButton} onPress={() => handleSearch(false)}>
             <Text style={styles.goButtonText}>Go</Text>

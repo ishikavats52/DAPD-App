@@ -2,8 +2,10 @@ const {
   S3Client,
   PutObjectCommand,
   DeleteObjectCommand,
-  DeleteObjectsCommand
+  DeleteObjectsCommand,
+  GetObjectCommand
 } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 let s3Client;
 
@@ -120,6 +122,21 @@ async function deleteObjects(keys) {
   }
 }
 
+async function getPresignedUrlForImage(key) {
+  if (!isS3Enabled() || !key) return null;
+  try {
+    const command = new GetObjectCommand({
+      Bucket: getBucket(),
+      Key: key
+    });
+    // Link expires in 12 hours (43200 seconds)
+    return await getSignedUrl(getS3Client(), command, { expiresIn: 43200 });
+  } catch (error) {
+    console.error('Error generating presigned URL:', error);
+    return null;
+  }
+}
+
 function resetS3ClientForTests() {
   s3Client = null;
 }
@@ -132,5 +149,6 @@ module.exports = {
   uploadBuffer,
   deleteObject,
   deleteObjects,
+  getPresignedUrlForImage,
   resetS3ClientForTests
 };

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
-import { Text, Appbar, Menu, Dialog, Portal, Divider, ActivityIndicator } from 'react-native-paper';
+import { View, StyleSheet, TouchableOpacity, Image, Alert, ScrollView } from 'react-native';
+import { Text, Appbar, Menu, ActivityIndicator } from 'react-native-paper';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '../../navigation/MainTabNavigator';
 import { COLORS } from '../../theme';
@@ -8,7 +8,6 @@ import useAuth from '../../hooks/useAuth';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import apiClient from '../../api/client';
-import * as SecureStore from 'expo-secure-store';
 
 type Props = {
   navigation: NativeStackNavigationProp<MainStackParamList, 'AddArticle'>;
@@ -16,23 +15,44 @@ type Props = {
 
 const AddArticleScreen = ({ navigation }: Props) => {
   const [menuVisible, setMenuVisible] = useState(false);
-  const [scanModalVisible, setScanModalVisible] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [selectedUris, setSelectedUris] = useState<string[]>([]);
   const { user, signOut } = useAuth();
 
   const handleCamera = () => {
-    setScanModalVisible(false);
-    navigation.navigate('Scanner');
+    navigation.navigate('Scanner', { mode: 'add' });
   };
 
-  const processImages = async (photoUris: string[]) => {
+  const handleGallery = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (permissionResult.granted === false) {
+      Alert.alert("Permission Required", "You've refused to allow this app to access your photos!");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsMultipleSelection: true,
+      allowsEditing: false,
+      quality: 1,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const uris = result.assets.map(asset => asset.uri);
+      setSelectedUris(uris); // Just store them for preview
+    }
+  };
+
+  const processImages = async () => {
+    if (selectedUris.length === 0) return;
     setProcessing(true);
     try {
       const formData = new FormData();
       const processedUris: string[] = [];
 
-      for (let i = 0; i < photoUris.length; i++) {
-        const photoUri = photoUris[i];
+      for (let i = 0; i < selectedUris.length; i++) {
+        const photoUri = selectedUris[i];
         const manipResult = await ImageManipulator.manipulateAsync(
           photoUri,
           [{ resize: { width: 1280 } }],
@@ -53,6 +73,7 @@ const AddArticleScreen = ({ navigation }: Props) => {
 
       const extractedData = response.data.extractedData || response.data.fields || response.data;
       
+      setSelectedUris([]); // clear after success
       navigation.navigate('Verification', { 
         extractedData, 
         imageUris: processedUris
@@ -63,28 +84,6 @@ const AddArticleScreen = ({ navigation }: Props) => {
       Alert.alert('Scan Failed', message);
     } finally {
       setProcessing(false);
-    }
-  };
-
-  const handleGallery = async () => {
-    setScanModalVisible(false);
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
-    if (permissionResult.granted === false) {
-      Alert.alert("Permission Required", "You've refused to allow this app to access your photos!");
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsMultipleSelection: true,
-      allowsEditing: false,
-      quality: 1,
-    });
-
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      const uris = result.assets.map(asset => asset.uri);
-      await processImages(uris);
     }
   };
 
@@ -126,31 +125,65 @@ const AddArticleScreen = ({ navigation }: Props) => {
         <Text style={styles.subtitle}>Scan the article label to auto-fill the form</Text>
 
         <View style={styles.scanBox}>
-          <Image 
-            source={{ uri: 'https://cdn-icons-png.flaticon.com/512/2965/2965335.png' }} 
-            style={styles.docIcon} 
-          />
+          {selectedUris.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ padding: 8 }}>
+              {selectedUris.map((uri, idx) => (
+                <Image key={idx} source={{ uri }} style={{ width: 200, height: '100%', borderRadius: 8, marginRight: 8 }} resizeMode="cover" />
+              ))}
+            </ScrollView>
+          ) : (
+            <Image 
+              source={{ uri: 'https://cdn-icons-png.flaticon.com/512/2965/2965335.png' }} 
+              style={styles.docIcon} 
+            />
+          )}
         </View>
 
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('Verification', { extractedData: {}, imageUris: [] })}
-          disabled={processing}
-        >
-          <Text style={styles.actionButtonText}>Enter Manually</Text>
-        </TouchableOpacity>
+        {selectedUris.length > 0 ? (
+          <>
+            <TouchableOpacity 
+              style={[styles.actionButton, { backgroundColor: COLORS.primary }]}
+              onPress={processImages}
+              disabled={processing}
+            >
+              <Text style={[styles.actionButtonText, { color: '#FFF' }]}>Process Document</Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => setScanModalVisible(true)}
-          disabled={processing}
-        >
-          {processing ? (
-            <ActivityIndicator color="#1C2942" />
-          ) : (
-            <Text style={styles.actionButtonText}>Scan image</Text>
-          )}
-        </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => setSelectedUris([])}
+              disabled={processing}
+            >
+              <Text style={styles.actionButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('Verification', { extractedData: {}, imageUris: [] })}
+              disabled={processing}
+            >
+              <Text style={styles.actionButtonText}>Enter Manually</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={handleCamera}
+              disabled={processing}
+            >
+              <Text style={styles.actionButtonText}>Scan by camera</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={handleGallery}
+              disabled={processing}
+            >
+              <Text style={styles.actionButtonText}>Scan by gallery</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
 
       <View style={styles.footer}>
@@ -159,26 +192,15 @@ const AddArticleScreen = ({ navigation }: Props) => {
         </Text>
       </View>
 
-      <Portal>
-        <Dialog visible={scanModalVisible} onDismiss={() => setScanModalVisible(false)} style={styles.dialog}>
-          <Dialog.Title style={styles.dialogTitle}>Article label</Dialog.Title>
-          <Dialog.Content>
-            <Text style={styles.dialogSubtitle}>Choose camera or gallery to capture the label.</Text>
-          </Dialog.Content>
-          <Divider />
-          <TouchableOpacity style={styles.dialogAction} onPress={handleCamera}>
-            <Text style={styles.dialogActionText}>Camera</Text>
-          </TouchableOpacity>
-          <Divider />
-          <TouchableOpacity style={styles.dialogAction} onPress={handleGallery}>
-            <Text style={styles.dialogActionText}>Gallery</Text>
-          </TouchableOpacity>
-          <Divider />
-          <TouchableOpacity style={styles.dialogAction} onPress={() => setScanModalVisible(false)}>
-            <Text style={styles.dialogActionCancel}>Cancel</Text>
-          </TouchableOpacity>
-        </Dialog>
-      </Portal>
+      {processing && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size={48} color={COLORS.primary} />
+            <Text style={styles.loadingTitle}>Processing Document</Text>
+            <Text style={styles.loadingSub}>Extracting data securely using AI...</Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 };
@@ -232,8 +254,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   scanBox: {
-    width: 220,
-    height: 220,
+    width: '100%',
+    height: 240,
     borderWidth: 2,
     borderColor: '#D0D0D0',
     borderStyle: 'dashed',
@@ -274,34 +296,36 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.textSecondary,
   },
-  dialog: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(23, 43, 77, 0.90)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
   },
-  dialogTitle: {
+  loadingCard: {
+    backgroundColor: '#fff',
+    padding: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    width: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  loadingTitle: {
+    color: '#172B4D',
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#000',
-  },
-  dialogSubtitle: {
-    fontSize: 14,
-    color: '#666',
+    marginTop: 24,
     marginBottom: 8,
   },
-  dialogAction: {
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dialogActionText: {
-    color: '#1C2942',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  dialogActionCancel: {
-    color: '#C63031',
-    fontSize: 16,
-    fontWeight: '600',
+  loadingSub: {
+    color: '#6B778C',
+    fontSize: 14,
+    textAlign: 'center',
   },
 });
 
