@@ -113,7 +113,7 @@ const AddEmployeeScreen = ({ navigation }: Props) => {
           onDismiss={() => setMenuVisible(false)}
           anchor={
             <TouchableOpacity onPress={() => setMenuVisible(true)} style={styles.menuButton}>
-              <Text style={{ fontSize: 24, color: COLORS.primary }}>≡</Text>
+              <Text style={{ fontSize: 36, color: COLORS.primary }}>≡</Text>
             </TouchableOpacity>
           }
           contentStyle={{ backgroundColor: COLORS.surface }}

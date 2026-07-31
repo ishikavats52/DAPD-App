@@ -273,12 +273,16 @@ exports.listActive = asyncHandler(async (req, res) => {
   const { page, limit, skip } = parsePagination(req.query);
   const scope = resolveScope(req.user);
   
-  const { rows, total } = await Medicine.listActive({ scope, skip, limit });
+  if (req.query.userId && ['admin', 'superadmin'].includes(req.user.role)) {
+    scope.createdBy = req.query.userId;
+  }
+
+  const { rows, total, overallTotal } = await Medicine.listActive({ scope, skip, limit });
   const enriched = await enrichWithCreator(rows);
 
   res.json({
     data: enriched,
-    meta: paginationMeta(total, page, limit)
+    meta: { ...paginationMeta(total, page, limit), overallTotal }
   });
 });
 
@@ -303,12 +307,16 @@ exports.searchActive = asyncHandler(async (req, res) => {
     return false;
   };
 
-  const { rows, total } = await Medicine.searchActive({ scope, predicate, skip, limit });
+  if (req.query.userId && ['admin', 'superadmin'].includes(req.user.role)) {
+    scope.createdBy = req.query.userId;
+  }
+
+  const { rows, total, overallTotal } = await Medicine.searchActive({ scope, predicate, skip, limit });
   const enriched = await enrichWithCreator(rows);
 
   res.json({
     data: enriched,
-    meta: paginationMeta(total, page, limit)
+    meta: { ...paginationMeta(total, page, limit), overallTotal }
   });
 });
 

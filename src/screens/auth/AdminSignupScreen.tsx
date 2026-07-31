@@ -33,7 +33,6 @@ const AdminSignupScreen = ({ navigation }: Props) => {
   const [loading, setLoading] = useState(false);
 
   const [menuVisible, setMenuVisible] = useState(false);
-  const [lang, setLang] = useState<'EN' | 'HI'>('EN');
 
   const handleSignup = async () => {
     if (!officeName || !address || !location || !state || !pincode || !phone || !email || !password) {
@@ -78,18 +77,7 @@ const AdminSignupScreen = ({ navigation }: Props) => {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Language Toggle */}
-          <View style={styles.langToggleContainer}>
-            <View style={styles.langToggle}>
-              <TouchableOpacity onPress={() => setLang('EN')}>
-                <Text style={[styles.langText, lang === 'EN' && styles.langTextActive]}>EN</Text>
-              </TouchableOpacity>
-              <View style={styles.langDivider} />
-              <TouchableOpacity onPress={() => setLang('HI')}>
-                <Text style={[styles.langText, lang === 'HI' && styles.langTextActive]}>हिं</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+          {/* Removed Language Toggle */}
 
           <DAPDHeader />
           <Text style={styles.pageSubtitle}>Office registration — superadmin approval required</Text>
@@ -255,35 +243,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
     flexGrow: 1,
-  },
-  langToggleContainer: {
-    alignItems: 'flex-end',
-    marginTop: 40,
-    marginBottom: -20,
-  },
-  langToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    backgroundColor: COLORS.surface,
-  },
-  langText: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    paddingHorizontal: 8,
-  },
-  langTextActive: {
-    fontWeight: 'bold',
-    color: COLORS.primary,
-  },
-  langDivider: {
-    width: 1,
-    height: 12,
-    backgroundColor: COLORS.border,
   },
   pageSubtitle: {
     fontSize: 14,

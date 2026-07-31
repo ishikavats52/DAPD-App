@@ -115,6 +115,9 @@ async function reassignUserReferences(fromUserId, toUserId) {
 
 async function listActive({ scope, skip, limit }) {
   let rows;
+  const allActive = (await scanAllMedicines()).filter((m) => m.isActive !== false);
+  const overallTotal = allActive.length;
+
   if (scope.createdBy) {
     const res = await getDocClient().send(
       new QueryCommand({
@@ -126,19 +129,19 @@ async function listActive({ scope, skip, limit }) {
     );
     rows = (res.Items || []).filter((m) => m.isActive !== false);
   } else {
-    rows = (await scanAllMedicines()).filter((m) => m.isActive !== false);
+    rows = allActive;
   }
   rows.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   const total = rows.length;
-  return { rows: rows.slice(skip, skip + limit), total };
+  return { rows: rows.slice(skip, skip + limit), total, overallTotal };
 }
 
 async function searchActive({ scope, predicate, skip, limit }) {
-  const { rows: activeRows } = await listActive({ scope, skip: 0, limit: Number.MAX_SAFE_INTEGER });
+  const { rows: activeRows, overallTotal } = await listActive({ scope, skip: 0, limit: Number.MAX_SAFE_INTEGER });
   const all = activeRows.filter(predicate);
   all.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   const total = all.length;
-  return { rows: all.slice(skip, skip + limit), total };
+  return { rows: all.slice(skip, skip + limit), total, overallTotal };
 }
 
 async function findBySupplyOrder(supplyOrder) {

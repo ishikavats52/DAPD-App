@@ -33,7 +33,6 @@ const UsersScreen = ({ navigation }: Props) => {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'approved' | 'pending'>('approved');
-  const [lang, setLang] = useState<'EN' | 'HI'>('EN');
 
   const fetchUsers = async (mode: 'approved' | 'pending') => {
     try {
@@ -202,11 +201,7 @@ const UsersScreen = ({ navigation }: Props) => {
   return (
     <View style={styles.container}>
       <Appbar.Header style={styles.header}>
-        <Image 
-          source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Emblem_of_India.svg/250px-Emblem_of_India.svg.png' }}
-          style={styles.headerEmblem}
-          resizeMode="contain"
-        />
+        <Appbar.BackAction onPress={() => navigation.goBack()} />
         <Text style={styles.headerTitle}>Users</Text>
         
         <View style={styles.headerActions}>
@@ -234,7 +229,7 @@ const UsersScreen = ({ navigation }: Props) => {
           onDismiss={() => setMenuVisible(false)}
           anchor={
             <TouchableOpacity onPress={() => setMenuVisible(true)} style={styles.menuButton}>
-              <Text style={{ fontSize: 24, color: COLORS.primary }}>≡</Text>
+              <Text style={{ fontSize: 36, color: COLORS.primary }}>≡</Text>
             </TouchableOpacity>
           }
           contentStyle={{ backgroundColor: COLORS.surface }}
@@ -248,20 +243,8 @@ const UsersScreen = ({ navigation }: Props) => {
             <Menu.Item onPress={() => { setMenuVisible(false); }} title="Users" />
           )}
           <Menu.Item onPress={() => { setMenuVisible(false); navigation.navigate('Profile'); }} title="Profile" />
-          
-          <Divider />
-          <View style={styles.langToggleMenu}>
-            <TouchableOpacity onPress={() => setLang('EN')} style={styles.langBtn}>
-              <Text style={[styles.langText, lang === 'EN' && styles.langTextActive]}>EN</Text>
-            </TouchableOpacity>
-            <View style={styles.langDivider} />
-            <TouchableOpacity onPress={() => setLang('HI')} style={styles.langBtn}>
-              <Text style={[styles.langText, lang === 'HI' && styles.langTextActive]}>हिं</Text>
-            </TouchableOpacity>
-          </View>
-          <Divider />
 
-          <Menu.Item onPress={() => setMenuVisible(false)} title="Help" />
+          {/* <Menu.Item onPress={() => setMenuVisible(false)} title="Help" /> */}
           <Menu.Item onPress={() => { setMenuVisible(false); signOut(); }} title="Logout" />
         </Menu>
       </Appbar.Header>

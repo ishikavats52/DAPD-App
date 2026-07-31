@@ -119,11 +119,7 @@ const SearchScreen = ({ navigation, route }: Props) => {
   return (
     <View style={styles.container}>
       <Appbar.Header style={styles.header}>
-        <Image 
-          source={require('../../../assets/emblem.png')}
-          style={styles.headerEmblem}
-          resizeMode="contain"
-        />
+        <Appbar.BackAction onPress={() => navigation.goBack()} />
         <Appbar.Content title="Search" titleStyle={styles.headerTitle} />
         
         <Menu
@@ -131,7 +127,7 @@ const SearchScreen = ({ navigation, route }: Props) => {
           onDismiss={() => setMenuVisible(false)}
           anchor={
             <TouchableOpacity onPress={() => setMenuVisible(true)} style={styles.menuButton}>
-              <Text style={{ fontSize: 24, color: COLORS.primary }}>≡</Text>
+              <Text style={{ fontSize: 36, color: COLORS.primary }}>≡</Text>
             </TouchableOpacity>
           }
           contentStyle={{ backgroundColor: COLORS.surface }}

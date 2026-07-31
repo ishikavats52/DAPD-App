@@ -17,7 +17,6 @@ const LoginScreen = ({ navigation }: Props) => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [lang, setLang] = useState<'EN' | 'HI'>('EN');
   const { signIn } = useAuth();
 
 const handleLogin = async () => {
@@ -73,18 +72,7 @@ const handleLogin = async () => {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Language Toggle */}
-        <View style={styles.langToggleContainer}>
-          <View style={styles.langToggle}>
-            <TouchableOpacity onPress={() => setLang('EN')}>
-              <Text style={[styles.langText, lang === 'EN' && styles.langTextActive]}>EN</Text>
-            </TouchableOpacity>
-            <View style={styles.langDivider} />
-            <TouchableOpacity onPress={() => setLang('HI')}>
-              <Text style={[styles.langText, lang === 'HI' && styles.langTextActive]}>हिं</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        {/* Removed Language Toggle */}
 
         <DAPDHeader />
 
@@ -165,35 +153,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
     flexGrow: 1,
-  },
-  langToggleContainer: {
-    alignItems: 'flex-end',
-    marginTop: 40,
-    marginBottom: -20,
-  },
-  langToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    backgroundColor: COLORS.surface,
-  },
-  langText: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    paddingHorizontal: 8,
-  },
-  langTextActive: {
-    fontWeight: 'bold',
-    color: COLORS.primary,
-  },
-  langDivider: {
-    width: 1,
-    height: 12,
-    backgroundColor: COLORS.border,
   },
   card: {
     backgroundColor: COLORS.surface,

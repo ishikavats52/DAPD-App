@@ -67,11 +67,7 @@ const ProfileScreen = ({ navigation }: Props) => {
   return (
     <View style={styles.container}>
       <Appbar.Header style={styles.header}>
-        <Image 
-          source={require('../../../assets/emblem.png')}
-          style={styles.headerEmblem}
-          resizeMode="contain"
-        />
+        <Appbar.BackAction onPress={() => navigation.goBack()} />
         <Appbar.Content title="Profile" titleStyle={styles.headerTitle} />
         
         <Menu
@@ -79,7 +75,7 @@ const ProfileScreen = ({ navigation }: Props) => {
           onDismiss={() => setMenuVisible(false)}
           anchor={
             <TouchableOpacity onPress={() => setMenuVisible(true)} style={styles.menuButton}>
-              <Text style={{ fontSize: 24, color: COLORS.primary }}>≡</Text>
+              <Text style={{ fontSize: 36, color: COLORS.primary }}>≡</Text>
             </TouchableOpacity>
           }
           contentStyle={{ backgroundColor: COLORS.surface }}

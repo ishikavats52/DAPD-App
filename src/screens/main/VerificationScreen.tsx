@@ -119,14 +119,10 @@ const VerificationScreen = ({ route, navigation }: Props) => {
   return (
     <View style={styles.container}>
       <Appbar.Header style={styles.header}>
-        <Image 
-          source={require('../../../assets/emblem.png')}
-          style={styles.headerEmblem}
-          resizeMode="contain"
-        />
+        <Appbar.BackAction onPress={() => navigation.goBack()} />
         <Appbar.Content title="Add article" titleStyle={styles.headerTitle} />
         <TouchableOpacity style={styles.menuButton}>
-          <Text style={{ fontSize: 24, color: '#1C2942' }}>≡</Text>
+          <Text style={{ fontSize: 36, color: '#1C2942' }}>≡</Text>
         </TouchableOpacity>
       </Appbar.Header>
 

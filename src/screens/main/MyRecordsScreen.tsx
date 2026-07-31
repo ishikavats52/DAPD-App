@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, StyleSheet, FlatList, SectionList, ActivityIndicator, TouchableOpacity, SafeAreaView, StatusBar, Platform } from 'react-native';
-import { Text, Card, Appbar } from 'react-native-paper';
+import { Text, Card, Appbar, Menu, Provider } from 'react-native-paper';
+import { useIsFocused } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../../api/client';
@@ -31,6 +32,14 @@ const MyRecordsScreen = ({ navigation }: Props) => {
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [loading, setLoading] = useState(true);
   
+  // Filter & Stats state
+  const [users, setUsers] = useState<any[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [selectedUserName, setSelectedUserName] = useState<string>('All Users');
+  const [overallTotal, setOverallTotal] = useState<number>(0);
+  const [filterMenuVisible, setFilterMenuVisible] = useState(false);
+  const isFocused = useIsFocused();
+  
   // Pagination state
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -48,10 +57,19 @@ const MyRecordsScreen = ({ navigation }: Props) => {
       }
 
       const currentPage = isLoadMore ? page + 1 : 1;
-      const response = await apiClient.get(`/medicines?limit=15&page=${currentPage}`);
+      let url = `/medicines?limit=15&page=${currentPage}`;
+      if ((user?.role === 'admin' || user?.role === 'superadmin') && selectedUserId) {
+        url += `&userId=${selectedUserId}`;
+      }
+      
+      const response = await apiClient.get(url);
       
       const newData = response.data.data || [];
       const totalPages = response.data.meta?.totalPages || 1;
+      
+      if (response.data.meta?.overallTotal !== undefined) {
+        setOverallTotal(response.data.meta.overallTotal);
+      }
       
       if (isLoadMore) {
         setMedicines(prev => {
@@ -80,7 +98,24 @@ const MyRecordsScreen = ({ navigation }: Props) => {
       fetchMedicines(false);
     });
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, selectedUserId]);
+
+  useEffect(() => {
+    if (isFocused && (user?.role === 'admin' || user?.role === 'superadmin')) {
+      const fetchUsersList = async () => {
+        try {
+          const [empRes, adminRes] = await Promise.all([
+            apiClient.get('/users/employees'),
+            apiClient.get('/users/admins')
+          ]);
+          setUsers([...(empRes.data.data || []), ...(adminRes.data.data || [])]);
+        } catch (e) {
+          console.error('Failed to fetch users', e);
+        }
+      };
+      fetchUsersList();
+    }
+  }, [isFocused, user]);
 
   const renderItem = ({ item }: { item: Medicine }) => {
     const price = item.totalValue ? `₹${item.totalValue}/unit` : 'N/A';
@@ -120,14 +155,46 @@ const MyRecordsScreen = ({ navigation }: Props) => {
   }, [medicines]);
 
   return (
+    <Provider>
     <SafeAreaView style={styles.safeContainer}>
       <StatusBar barStyle="light-content" backgroundColor={NAVY_BLUE} />
       <Appbar.Header style={styles.header}>
         <Appbar.BackAction onPress={() => navigation.goBack()} color="#FFF" />
         <Appbar.Content title={['admin', 'superadmin'].includes(user?.role || '') ? "All Records" : "My Records"} titleStyle={styles.headerTitle} />
+        {['admin', 'superadmin'].includes(user?.role || '') && (
+          <Menu
+            visible={filterMenuVisible}
+            onDismiss={() => setFilterMenuVisible(false)}
+            anchor={
+              <TouchableOpacity onPress={() => setFilterMenuVisible(true)} style={styles.filterButton}>
+                <Ionicons name="filter" size={24} color="#FFF" />
+              </TouchableOpacity>
+            }
+          >
+            <Menu.Item 
+              onPress={() => { setSelectedUserId(''); setSelectedUserName('All Users'); setFilterMenuVisible(false); }} 
+              title="All Users" 
+            />
+            {users.map((u) => (
+              <Menu.Item 
+                key={u.id || u._id} 
+                onPress={() => { setSelectedUserId(u.id || u._id); setSelectedUserName(u.name || u.officeName || 'User'); setFilterMenuVisible(false); }} 
+                title={u.name || u.officeName || 'Unknown'} 
+              />
+            ))}
+          </Menu>
+        )}
       </Appbar.Header>
 
       <View style={styles.mainBackground}>
+        {['admin', 'superadmin'].includes(user?.role || '') && (
+          <View style={styles.statsBanner}>
+            <Text style={styles.statsText}>Total Scanned Documents: {overallTotal}</Text>
+            {selectedUserId !== '' && (
+              <Text style={styles.filterBadge}>Filtered by: {selectedUserName}</Text>
+            )}
+          </View>
+        )}
         {loading ? (
           <ActivityIndicator size="large" color={NAVY_BLUE} style={{ marginTop: 40 }} />
         ) : ['admin', 'superadmin'].includes(user?.role || '') ? (
@@ -182,6 +249,7 @@ const MyRecordsScreen = ({ navigation }: Props) => {
         )}
       </View>
     </SafeAreaView>
+    </Provider>
   );
 };
 
@@ -198,6 +266,36 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontWeight: 'bold',
     fontSize: 20,
+  },
+  filterButton: {
+    padding: 8,
+    marginRight: 8,
+  },
+  statsBanner: {
+    backgroundColor: '#E6EBF5',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#D0D8E8',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  statsText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: NAVY_BLUE,
+  },
+  filterBadge: {
+    fontSize: 12,
+    color: '#0055AA',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#0055AA',
+    overflow: 'hidden',
   },
   mainBackground: {
     flex: 1,

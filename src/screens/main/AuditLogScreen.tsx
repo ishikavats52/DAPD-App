@@ -69,7 +69,6 @@ const formatDate = (isoString: string) => {
 const AuditLogScreen = ({ navigation }: Props) => {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [lang, setLang] = useState<'EN' | 'HI'>('EN');
 
   useEffect(() => {
     const fetchLogs = async () => {
@@ -136,16 +135,6 @@ const AuditLogScreen = ({ navigation }: Props) => {
       <Appbar.Header style={styles.header}>
         <Appbar.BackAction onPress={() => navigation.goBack()} />
         <Appbar.Content title="Audit log" titleStyle={styles.headerTitle} />
-        
-        <View style={styles.langToggle}>
-          <TouchableOpacity onPress={() => setLang('EN')}>
-            <Text style={[styles.langText, lang === 'EN' && styles.langTextActive]}>EN</Text>
-          </TouchableOpacity>
-          <View style={styles.langDivider} />
-          <TouchableOpacity onPress={() => setLang('HI')}>
-            <Text style={[styles.langText, lang === 'HI' && styles.langTextActive]}>हिं</Text>
-          </TouchableOpacity>
-        </View>
       </Appbar.Header>
 
       <View style={styles.content}>
@@ -186,31 +175,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#1C2942',
     fontSize: 18,
-  },
-  langToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 4,
-    marginRight: 16,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    backgroundColor: '#FFFFFF',
-  },
-  langText: {
-    fontSize: 12,
-    color: '#666',
-    paddingHorizontal: 8,
-  },
-  langTextActive: {
-    fontWeight: 'bold',
-    color: '#1C2942',
-  },
-  langDivider: {
-    width: 1,
-    height: 12,
-    backgroundColor: '#E0E0E0',
   },
   content: {
     flex: 1,
