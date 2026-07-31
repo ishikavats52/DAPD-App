@@ -14,17 +14,26 @@ type Props = {
   navigation: NativeStackNavigationProp<MainStackParamList, 'MISReport'>;
 };
 
-type ComparisonItem = {
-  nomenclature: string;
-  estimatedRate: string;
-  benchmarkRate: string;
-  suggestedBBQR: string;
+type ReferenceDocument = {
+  dateOfSO: string;
+  description: string;
+  qty: string;
+  rate: string;
+  amount: string;
 };
 
 type MISReportData = {
-  executiveSummary: string;
-  comparisonTable: ComparisonItem[];
-  procurementRecommendations: string;
+  unit: string;
+  qty: string;
+  purpose: string;
+  basedOnDataText: string;
+  highRate: string;
+  highItemTotal: string;
+  mediumRate: string;
+  mediumItemTotal: string;
+  recommended: string;
+  referenceDocuments: ReferenceDocument[];
+  openMarket: string;
 };
 
 const GOLD = '#F3B718';
@@ -33,6 +42,9 @@ const MISScreen = ({ navigation }: Props) => {
   const theme = useTheme();
   const [query, setQuery] = useState('');
   const [selectedOrg, setSelectedOrg] = useState('');
+  const [unit, setUnit] = useState('');
+  const [quantity, setQuantity] = useState('');
+  const [purpose, setPurpose] = useState('');
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState<MISReportData | null>(null);
 
@@ -51,10 +63,13 @@ const MISScreen = ({ navigation }: Props) => {
       const response = await apiClient.post('/medicines/generate-mis', {
         query: query.trim(),
         organisation: selectedOrg === 'All' ? '' : selectedOrg,
+        unit: unit.trim(),
+        quantity: quantity.trim(),
+        purpose: purpose.trim(),
       });
 
       if (response.data && response.data.report) {
-        setReport(response.data.report);
+        setReport({ ...response.data.report, unit, qty: quantity, purpose });
       } else {
         throw new Error('No report data returned');
       }
@@ -75,19 +90,20 @@ const MISScreen = ({ navigation }: Props) => {
         <html>
           <head>
             <style>
-              body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 30px; color: #333; }
+              body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 30px; color: #333; font-size: 14px; line-height: 1.6; }
               .header { text-align: center; border-bottom: 2px solid #172B4D; padding-bottom: 20px; margin-bottom: 20px; }
               .emblem { height: 80px; margin-bottom: 10px; }
               .title { font-size: 24px; font-weight: bold; color: #172B4D; margin: 0; }
               .subtitle { font-size: 14px; color: #666; margin-top: 5px; }
               .meta { font-size: 12px; color: #999; margin-top: 5px; }
-              .section-title { font-size: 16px; font-weight: bold; color: #172B4D; border-bottom: 1px solid #DFE1E6; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; text-transform: uppercase; }
-              .summary-box { background-color: #F4F6F9; border-left: 4px solid ${GOLD}; padding: 15px; border-radius: 4px; font-size: 14px; line-height: 1.6; }
-              table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+              .estimate-title { font-size: 20px; font-weight: bold; color: #172B4D; text-decoration: underline; margin-bottom: 20px; }
+              .info-row { margin-bottom: 10px; }
+              .info-label { font-weight: bold; width: 80px; display: inline-block; }
+              .text-box { margin-bottom: 20px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 20px; }
               th, td { border: 1px solid #DFE1E6; padding: 10px; text-align: left; font-size: 13px; }
               th { background-color: #172B4D; color: #FFF; font-weight: bold; }
               tr:nth-child(even) { background-color: #F8F9FA; }
-              .recommendations { font-size: 14px; line-height: 1.6; }
               .footer { text-align: center; font-size: 11px; color: #999; margin-top: 40px; border-top: 1px solid #DFE1E6; padding-top: 10px; }
             </style>
           </head>
@@ -95,37 +111,58 @@ const MISScreen = ({ navigation }: Props) => {
             <div class="header">
               <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Emblem_of_India.svg/250px-Emblem_of_India.svg.png" class="emblem" />
               <div class="title">DEFENCE ARTICLES PRICING DEPOSITORY</div>
-              <div class="subtitle">Management Information System (MIS) Report</div>
+              <div class="subtitle">Management Information System (MIS)</div>
               <div class="meta">Generated on ${new Date().toLocaleDateString()} | Topic: "${query}"</div>
             </div>
             
-            <div class="section-title">Executive Summary</div>
-            <div class="summary-box">${report.executiveSummary}</div>
+            <div class="estimate-title">Estimate:</div>
             
-            <div class="section-title">Comparative Analysis & Suggested BBQR</div>
-            <table>
-              <thead>
-                <tr>
-                  <th>Nomenclature</th>
-                  <th>Estimated Unit Rate</th>
-                  <th>Benchmark Unit Rate</th>
-                  <th>Suggested BBQR</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${report.comparisonTable.map(item => `
+            <div class="info-row"><span class="info-label">1. Unit:</span> ${report.unit || 'N/A'}</div>
+            <div class="info-row"><span class="info-label">2. Qty:</span> ${report.qty || 'N/A'}</div>
+            <div class="info-row"><span class="info-label">3. Purpose:</span> ${report.purpose || 'N/A'}</div>
+            
+            <div class="text-box">
+              <strong>4.</strong> ${report.basedOnDataText}
+              <br/><br/>
+              1) <strong>High:</strong> ${report.highRate} / Item Total: ${report.highItemTotal}<br/>
+              2) <strong>Medium:</strong> ${report.mediumRate} / ${report.mediumItemTotal}
+            </div>
+            
+            <div class="text-box">
+              <strong>5. Recommended:</strong> ${report.recommended}
+            </div>
+            
+            <div class="text-box">
+              <strong>6. Reference documents</strong>
+              <table>
+                <thead>
                   <tr>
-                    <td><strong>${item.nomenclature}</strong></td>
-                    <td>${item.estimatedRate}</td>
-                    <td>${item.benchmarkRate}</td>
-                    <td>${item.suggestedBBQR}</td>
+                    <th>S.No</th>
+                    <th>Date of SO</th>
+                    <th>Description/Brand/Supplier</th>
+                    <th>Qty</th>
+                    <th>Rate</th>
+                    <th>Amount</th>
                   </tr>
-                `).join('')}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  ${report.referenceDocuments.map((item, idx) => `
+                    <tr>
+                      <td>${idx + 1}</td>
+                      <td>${item.dateOfSO}</td>
+                      <td>${item.description}</td>
+                      <td>${item.qty}</td>
+                      <td>${item.rate}</td>
+                      <td>${item.amount}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
             
-            <div class="section-title">Strategic Procurement Recommendations</div>
-            <div class="recommendations">${report.procurementRecommendations}</div>
+            <div class="text-box">
+              <strong>7. Open market:</strong> ${report.openMarket}
+            </div>
             
             <div class="footer">
               CONFIDENTIAL - FOR DEFENCE ACQUISITION PURPOSES ONLY
@@ -171,6 +208,34 @@ const MISScreen = ({ navigation }: Props) => {
               placeholder="e.g. Microbiology Macconkey Agar, Syringes"
               value={query}
               onChangeText={setQuery}
+              placeholderTextColor="#888"
+            />
+            
+            <Text style={styles.label}>Unit</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. R&R, Dental Centre"
+              value={unit}
+              onChangeText={setUnit}
+              placeholderTextColor="#888"
+            />
+            
+            <Text style={styles.label}>Quantity</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. 100"
+              value={quantity}
+              onChangeText={setQuantity}
+              keyboardType="numeric"
+              placeholderTextColor="#888"
+            />
+            
+            <Text style={styles.label}>Purpose</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. Annual procurement"
+              value={purpose}
+              onChangeText={setPurpose}
               placeholderTextColor="#888"
             />
 
@@ -219,32 +284,63 @@ const MISScreen = ({ navigation }: Props) => {
                 <Text style={styles.reportTitle}>Generated Intelligence Report</Text>
               </View>
 
-              <Text style={styles.reportSectionTitle}>Executive Summary</Text>
-              <View style={styles.summaryBox}>
-                <Text style={styles.summaryText}>{report.executiveSummary}</Text>
+              <Text style={styles.reportSectionTitle}>Estimate</Text>
+              
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>1. Unit:</Text>
+                <Text style={styles.infoValue}>{report.unit || 'N/A'}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>2. Qty:</Text>
+                <Text style={styles.infoValue}>{report.qty || 'N/A'}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>3. Purpose:</Text>
+                <Text style={styles.infoValue}>{report.purpose || 'N/A'}</Text>
+              </View>
+              
+              <View style={[styles.summaryBox, { marginTop: 12 }]}>
+                <Text style={styles.summaryText}>
+                  <Text style={{ fontWeight: 'bold' }}>4. </Text>{report.basedOnDataText}
+                </Text>
+                <View style={{ marginTop: 8 }}>
+                  <Text style={styles.summaryText}>1) <Text style={{ fontWeight: 'bold' }}>High:</Text> {report.highRate} / Item Total: {report.highItemTotal}</Text>
+                  <Text style={styles.summaryText}>2) <Text style={{ fontWeight: 'bold' }}>Medium:</Text> {report.mediumRate} / {report.mediumItemTotal}</Text>
+                </View>
               </View>
 
-              <Text style={styles.reportSectionTitle}>Comparative Cost & specifications</Text>
-              {report.comparisonTable.map((item, idx) => (
+              <View style={{ marginTop: 16, marginBottom: 16 }}>
+                <Text style={styles.summaryText}>
+                  <Text style={{ fontWeight: 'bold' }}>5. Recommended: </Text>{report.recommended}
+                </Text>
+              </View>
+
+              <Text style={styles.reportSectionTitle}>6. Reference Documents</Text>
+              {report.referenceDocuments.map((item, idx) => (
                 <View key={idx} style={styles.tableRow}>
-                  <Text style={styles.tableNomenclature}>{item.nomenclature}</Text>
+                  <Text style={styles.tableNomenclature}>{item.dateOfSO} - {item.description}</Text>
                   <View style={styles.tableRatesRow}>
                     <View style={styles.rateCol}>
-                      <Text style={styles.rateLabel}>Estimated Rate</Text>
-                      <Text style={styles.rateValue}>{item.estimatedRate}</Text>
+                      <Text style={styles.rateLabel}>Qty</Text>
+                      <Text style={styles.rateValue}>{item.qty}</Text>
                     </View>
                     <View style={styles.rateCol}>
-                      <Text style={styles.rateLabel}>Benchmark Rate</Text>
-                      <Text style={[styles.rateValue, { color: '#27AE60' }]}>{item.benchmarkRate}</Text>
+                      <Text style={styles.rateLabel}>Rate</Text>
+                      <Text style={styles.rateValue}>{item.rate}</Text>
+                    </View>
+                    <View style={styles.rateCol}>
+                      <Text style={styles.rateLabel}>Amount</Text>
+                      <Text style={[styles.rateValue, { color: '#27AE60' }]}>{item.amount}</Text>
                     </View>
                   </View>
-                  <Text style={styles.bbqrLabel}>Suggested BBQR Specifications:</Text>
-                  <Text style={styles.bbqrValue}>{item.suggestedBBQR}</Text>
                 </View>
               ))}
 
-              <Text style={styles.reportSectionTitle}>Strategic Recommendations</Text>
-              <Text style={styles.recommendationsText}>{report.procurementRecommendations}</Text>
+              <View style={{ marginTop: 8, marginBottom: 16 }}>
+                <Text style={styles.summaryText}>
+                  <Text style={{ fontWeight: 'bold' }}>7. Open market: </Text>{report.openMarket}
+                </Text>
+              </View>
 
               <TouchableOpacity style={styles.downloadButton} onPress={handleDownloadPDF}>
                 <Ionicons name="download-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
@@ -450,6 +546,21 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+  infoLabel: {
+    fontWeight: 'bold',
+    width: 80,
+    color: '#333',
+    fontSize: 14,
+  },
+  infoValue: {
+    flex: 1,
+    color: '#333',
+    fontSize: 14,
   },
 });
 
