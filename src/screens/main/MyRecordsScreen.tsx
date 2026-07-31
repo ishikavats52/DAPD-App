@@ -104,11 +104,16 @@ const MyRecordsScreen = ({ navigation }: Props) => {
     if (isFocused && (user?.role === 'admin' || user?.role === 'superadmin')) {
       const fetchUsersList = async () => {
         try {
-          const [empRes, adminRes] = await Promise.all([
-            apiClient.get('/users/employees'),
-            apiClient.get('/users/admins')
-          ]);
-          setUsers([...(empRes.data.data || []), ...(adminRes.data.data || [])]);
+          if (user?.role === 'superadmin') {
+            const [empRes, adminRes] = await Promise.all([
+              apiClient.get('/users/employees'),
+              apiClient.get('/users/admins')
+            ]);
+            setUsers([...(empRes.data.data || []), ...(adminRes.data.data || [])]);
+          } else if (user?.role === 'admin') {
+            const response = await apiClient.get('/users/employees');
+            setUsers(response.data.data || []);
+          }
         } catch (e) {
           console.error('Failed to fetch users', e);
         }
