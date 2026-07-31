@@ -20,7 +20,7 @@ function isRetryableQuotaError(err) {
   return err?.status === 429 || String(err?.message || '').includes('429 Too Many Requests');
 }
 
-async function generateMISReportFromAI(records, userQuery, unit, quantity, purpose) {
+async function generateMISReportFromAI(records, userQuery) {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) throw new Error('GEMINI_API_KEY is not configured');
 
@@ -31,29 +31,32 @@ async function generateMISReportFromAI(records, userQuery, unit, quantity, purpo
 Analyze these records and generate an Estimate Report.
 
 User Query: "${userQuery}"
-Requesting Unit: "${unit || 'Not specified'}"
-Requested Quantity: "${quantity || 'Not specified'}"
-Purpose: "${purpose || 'Not specified'}"
 
 Historical Purchase Records:
 ${records && records.length > 0 ? JSON.stringify(records, null, 2) : 'No historical records found in the local database for this query.'}
 
 Instructions:
-1. Formulate the "Based on data" text starting with "Based on the available data on DAPD, this item is required to..."
-2. Calculate the "High Rate" (highest unit rate from the historical records) and calculate the "High Item Total" by multiplying by the requested quantity.
-3. Calculate the "Medium Rate" (average unit rate) and the "Medium Item Total" (Medium Rate * quantity). Add "(Incl. GST)" to the medium total if applicable.
-4. Select up to 4 historical purchase records to populate the "Reference Documents" table (Date of SO, Description/Brand/Supplier, Quantity, Rate, Amount).
-5. Provide a strategic "Recommended" vendor, rate, or procurement action.
-6. Provide an "Open Market" assessment (rate, availability).
+1. Determine a representative "Requesting Unit" (unit), an average "Requested Quantity" (qty), and a logical "Purpose" (purpose) for this item based on the historical records. If data is sparse, infer reasonable defaults for military medical procurement.
+2. Formulate the "Based on data" text starting with "Based on the available data on DAPD, this item is required to..."
+3. Calculate the "High Rate" (highest unit rate from the historical records) and calculate the "High Item Total" by multiplying by the estimated quantity.
+4. Calculate the "Medium Rate" (average unit rate) and the "Medium Item Total" (Medium Rate * quantity). Add "(Incl. GST)" to the medium total if applicable.
+5. Select up to 4 historical purchase records to populate the "Reference Documents" table (Date of SO, Description/Brand/Supplier, Quantity, Rate, Amount).
+6. Provide a strategic "Recommended" vendor, rate, or procurement action.
+7. Provide an "Open Market" assessment (rate, availability).
+8. List "Suggested Suppliers" based on the vendors/company names present in the historical data.
 
 Return EXACTLY a JSON object with this schema (no markdown, no additional text, just the raw JSON):
 {
+  "unit": "e.g. R&R",
+  "qty": "e.g. 100",
+  "purpose": "e.g. Annual procurement",
   "basedOnDataText": "Based on the available data on DAPD, this item is required to _____ and based on the uploaded BBQR (Qualitative specifications) for the estimate rates are as follows:",
   "highRate": "INR 450.00",
   "highItemTotal": "INR 45000.00",
   "mediumRate": "INR 400.00",
   "mediumItemTotal": "INR 40000.00 (Incl. GST)",
   "recommended": "Recommended to procure from Vendor X at INR 400.00",
+  "suggestedSuppliers": ["Vendor X", "Vendor Y"],
   "referenceDocuments": [
     {
       "dateOfSO": "12/05/2025",

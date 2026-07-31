@@ -32,6 +32,7 @@ type MISReportData = {
   mediumRate: string;
   mediumItemTotal: string;
   recommended: string;
+  suggestedSuppliers: string[];
   referenceDocuments: ReferenceDocument[];
   openMarket: string;
 };
@@ -42,9 +43,6 @@ const MISScreen = ({ navigation }: Props) => {
   const theme = useTheme();
   const [query, setQuery] = useState('');
   const [selectedOrg, setSelectedOrg] = useState('');
-  const [unit, setUnit] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [purpose, setPurpose] = useState('');
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState<MISReportData | null>(null);
 
@@ -63,13 +61,10 @@ const MISScreen = ({ navigation }: Props) => {
       const response = await apiClient.post('/medicines/generate-mis', {
         query: query.trim(),
         organisation: selectedOrg === 'All' ? '' : selectedOrg,
-        unit: unit.trim(),
-        quantity: quantity.trim(),
-        purpose: purpose.trim(),
       });
 
       if (response.data && response.data.report) {
-        setReport({ ...response.data.report, unit, qty: quantity, purpose });
+        setReport(response.data.report);
       } else {
         throw new Error('No report data returned');
       }
@@ -164,6 +159,10 @@ const MISScreen = ({ navigation }: Props) => {
               <strong>7. Open market:</strong> ${report.openMarket}
             </div>
             
+            <div class="text-box">
+              <strong>8. Suggested Suppliers:</strong> ${report.suggestedSuppliers ? report.suggestedSuppliers.join(', ') : 'None listed'}
+            </div>
+            
             <div class="footer">
               CONFIDENTIAL - FOR DEFENCE ACQUISITION PURPOSES ONLY
             </div>
@@ -208,34 +207,6 @@ const MISScreen = ({ navigation }: Props) => {
               placeholder="e.g. Microbiology Macconkey Agar, Syringes"
               value={query}
               onChangeText={setQuery}
-              placeholderTextColor="#888"
-            />
-            
-            <Text style={styles.label}>Unit</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. R&R, Dental Centre"
-              value={unit}
-              onChangeText={setUnit}
-              placeholderTextColor="#888"
-            />
-            
-            <Text style={styles.label}>Quantity</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. 100"
-              value={quantity}
-              onChangeText={setQuantity}
-              keyboardType="numeric"
-              placeholderTextColor="#888"
-            />
-            
-            <Text style={styles.label}>Purpose</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. Annual procurement"
-              value={purpose}
-              onChangeText={setPurpose}
               placeholderTextColor="#888"
             />
 
@@ -336,9 +307,16 @@ const MISScreen = ({ navigation }: Props) => {
                 </View>
               ))}
 
-              <View style={{ marginTop: 8, marginBottom: 16 }}>
+              <View style={{ marginTop: 8, marginBottom: 8 }}>
                 <Text style={styles.summaryText}>
                   <Text style={{ fontWeight: 'bold' }}>7. Open market: </Text>{report.openMarket}
+                </Text>
+              </View>
+
+              <View style={{ marginBottom: 16 }}>
+                <Text style={styles.summaryText}>
+                  <Text style={{ fontWeight: 'bold' }}>8. Suggested Suppliers: </Text>
+                  {report.suggestedSuppliers ? report.suggestedSuppliers.join(', ') : 'None listed'}
                 </Text>
               </View>
 

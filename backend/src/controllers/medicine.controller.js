@@ -335,7 +335,7 @@ exports.getOne = asyncHandler(async (req, res) => {
 });
 
 exports.generateMISReport = asyncHandler(async (req, res) => {
-  const { query, organisation, unit, quantity, purpose } = req.body;
+  const { query, organisation } = req.body;
   if (!query) {
     throw new AppError('Query is required to generate MIS report', 400);
   }
@@ -362,7 +362,7 @@ exports.generateMISReport = asyncHandler(async (req, res) => {
   });
 
   // Call Gemini MIS Service
-  const report = await generateMISReportFromAI(filtered, query, unit, quantity, purpose);
+  const report = await generateMISReportFromAI(filtered, query);
 
   // Log audit action
   await logAudit({
