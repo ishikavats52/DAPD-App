@@ -8,11 +8,14 @@ import apiClient from '../../api/client';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as SecureStore from 'expo-secure-store';
 
+import { RouteProp } from '@react-navigation/native';
+
 type Props = {
   navigation: NativeStackNavigationProp<MainStackParamList, 'Scanner'>;
+  route: RouteProp<MainStackParamList, 'Scanner'>;
 };
 
-const CameraScreen = ({ navigation }: Props) => {
+const CameraScreen = ({ navigation, route }: Props) => {
   const [permission, requestPermission] = useCameraPermissions();
   const [loading, setLoading] = useState(false);
   const [photoUris, setPhotoUris] = useState<string[]>([]);
@@ -72,16 +75,29 @@ const CameraScreen = ({ navigation }: Props) => {
         } as any);
       }
 
-      const response = await apiClient.post('/medicines/scan-image', formData, {
+      const mode = route.params?.mode || 'add';
+      const endpoint = mode === 'search' ? '/medicines/search-by-scan' : '/medicines/scan-image';
+      
+      const response = await apiClient.post(endpoint, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      const extractedData = response.data.extractedData || response.data.fields || response.data;
+      if (mode === 'search') {
+        const { exactMatch, tag, extractedFields } = response.data;
+        if (exactMatch && tag) {
+          navigation.replace('Search', { exactMatchTag: tag });
+        } else {
+          const nomenclature = extractedFields?.nomenclature || extractedFields?.Nomenclature || '';
+          navigation.replace('Search', { initialQuery: nomenclature, initialFilter: 'Nomenclature' });
+        }
+      } else {
+        const extractedData = response.data.extractedData || response.data.fields || response.data;
 
-      navigation.replace('Verification', {
-        extractedData,
-        imageUris: compressedUris
-      });
+        navigation.replace('Verification', {
+          extractedData,
+          imageUris: compressedUris
+        });
+      }
 
     } catch (error: any) {
       console.error(error);

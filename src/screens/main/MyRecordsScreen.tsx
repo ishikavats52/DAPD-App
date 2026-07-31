@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, SafeAreaView, StatusBar, Platform } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, StyleSheet, FlatList, SectionList, ActivityIndicator, TouchableOpacity, SafeAreaView, StatusBar, Platform } from 'react-native';
 import { Text, Card, Appbar } from 'react-native-paper';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -106,6 +106,19 @@ const MyRecordsScreen = ({ navigation }: Props) => {
     );
   };
 
+  const groupedMedicines = useMemo(() => {
+    const map: Record<string, Medicine[]> = {};
+    medicines.forEach(m => {
+      const creatorName = m.creator?.name || 'Unknown User';
+      if (!map[creatorName]) map[creatorName] = [];
+      map[creatorName].push(m);
+    });
+    return Object.keys(map).map(title => ({
+      title,
+      data: map[title]
+    }));
+  }, [medicines]);
+
   return (
     <SafeAreaView style={styles.safeContainer}>
       <StatusBar barStyle="light-content" backgroundColor={NAVY_BLUE} />
@@ -117,6 +130,33 @@ const MyRecordsScreen = ({ navigation }: Props) => {
       <View style={styles.mainBackground}>
         {loading ? (
           <ActivityIndicator size="large" color={NAVY_BLUE} style={{ marginTop: 40 }} />
+        ) : ['admin', 'superadmin'].includes(user?.role || '') ? (
+          <SectionList
+            sections={groupedMedicines}
+            keyExtractor={(item) => item._id}
+            renderItem={renderItem}
+            renderSectionHeader={({ section: { title } }) => (
+              <View style={styles.sectionHeaderContainer}>
+                <Text style={styles.sectionHeaderText}>{title}</Text>
+              </View>
+            )}
+            contentContainerStyle={styles.flatListContainer}
+            showsVerticalScrollIndicator={false}
+            onEndReached={() => fetchMedicines(true)}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={
+              <View style={styles.listFooter}>
+                {isFetchingMore ? (
+                  <ActivityIndicator size="small" color={NAVY_BLUE} style={{ padding: 16 }} />
+                ) : null}
+              </View>
+            }
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>No records found.</Text>
+              </View>
+            }
+          />
         ) : (
           <FlatList
             data={medicines}
@@ -166,6 +206,19 @@ const styles = StyleSheet.create({
   flatListContainer: {
     paddingTop: 16,
     paddingBottom: 24,
+  },
+  sectionHeaderContainer: {
+    backgroundColor: '#E6EBF5',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 8,
+    marginHorizontal: 16,
+  },
+  sectionHeaderText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#0D2340',
   },
   articleCard: {
     backgroundColor: CARD_BG,
