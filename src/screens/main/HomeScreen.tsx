@@ -27,8 +27,13 @@ const HomeScreen = ({ navigation }: Props) => {
     <SafeAreaView style={styles.safeContainer}>
       <StatusBar barStyle="light-content" backgroundColor={NAVY_BLUE} />
       
-      {/* Floating Menu Header */}
-      <View style={styles.headerFloating}>
+      {/* Top Header Row */}
+      <View style={styles.headerRow}>
+        <View style={styles.userInfoContainer}>
+          <Text style={styles.userOfficeText} numberOfLines={1}>{user?.officeName || 'HQs'}</Text>
+          <Text style={styles.userNameText} numberOfLines={1}>{user?.name || 'User'}</Text>
+        </View>
+
         <Menu
           visible={menuVisible}
           onDismiss={() => setMenuVisible(false)}
@@ -123,15 +128,7 @@ const HomeScreen = ({ navigation }: Props) => {
               </TouchableOpacity>
 
               {/* Dashboard */}
-              <TouchableOpacity style={[styles.actionRow, { borderBottomWidth: 0 }]} activeOpacity={0.7} onPress={() => handleNotImplemented('Dashboard')}>
-                <View style={styles.actionIconContainer}>
-                  <Ionicons name="pie-chart-outline" size={28} color="#FFF" />
-                </View>
-                <View style={styles.actionTextContainer}>
-                  <Text style={styles.actionTitle}>Dashboard</Text>
-                  <Text style={styles.actionSubtitle}>Overview & summary</Text>
-                </View>
-              </TouchableOpacity>
+             
             </View>
 
           </View>
@@ -155,22 +152,42 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flexGrow: 1,
   },
-  headerFloating: {
-    position: 'absolute',
-    top: Platform.OS === 'android' ? StatusBar.currentHeight || 40 : 50,
-    right: 16,
-    zIndex: 10,
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 30 : 10,
+    paddingBottom: 10,
+    backgroundColor: NAVY_BLUE,
+  },
+  userInfoContainer: {
+    flex: 1,
+    marginRight: 16,
+    justifyContent: 'center',
+  },
+  userOfficeText: {
+    color: GOLD,
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  userNameText: {
+    color: '#E2E8F0',
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 2,
   },
   menuButton: {
-    padding: 8,
+    padding: 6,
     borderRadius: 8,
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
   topBlueSection: {
     backgroundColor: NAVY_BLUE,
     alignItems: 'center',
-    paddingTop: Platform.OS === 'android' ? 60 : 70,
-    paddingBottom: 60,
+    paddingTop: 10,
+    paddingBottom: 50,
     paddingHorizontal: 20,
   },
   emblem: {

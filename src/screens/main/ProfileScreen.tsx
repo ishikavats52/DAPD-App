@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
-import { Text, Appbar, Menu } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Modal, KeyboardAvoidingView, Platform, Alert, ActivityIndicator } from 'react-native';
+import { Text, Appbar, Menu, TextInput, Button } from 'react-native-paper';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '../../navigation/MainTabNavigator';
 import { COLORS } from '../../theme';
 import useAuth from '../../hooks/useAuth';
+import apiClient from '../../api/client';
 
 type Props = {
   navigation: NativeStackNavigationProp<MainStackParamList, 'Profile'>;
@@ -13,6 +14,52 @@ type Props = {
 const ProfileScreen = ({ navigation }: Props) => {
   const { user, signOut } = useAuth();
   const [menuVisible, setMenuVisible] = useState(false);
+  const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+  const [changeChallengeId, setChangeChallengeId] = useState('');
+  const [otp, setOtp] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleRequestChangePassword = async () => {
+    setLoading(true);
+    setPasswordModalVisible(true);
+    try {
+      const res = await apiClient.post('/auth/change-password/request-otp');
+      setChangeChallengeId(res.data.changeChallengeId || res.data.loginChallengeId || res.data.id);
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.message || 'Failed to request password change');
+      setPasswordModalVisible(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmitChangePassword = async () => {
+    if (!otp || !newPassword || !confirmPassword) {
+      Alert.alert('Error', 'Please fill all fields');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+    setLoading(true);
+    try {
+      await apiClient.post('/auth/change-password', {
+        changeChallengeId,
+        otp,
+        newPassword
+      });
+      Alert.alert('Success', 'Password changed successfully. Please log in again.');
+      setPasswordModalVisible(false);
+      signOut();
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.message || 'Failed to change password');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Extract initial for avatar
   const initial = user?.name ? user.name.charAt(0).toUpperCase() : 'U';
@@ -117,18 +164,11 @@ const ProfileScreen = ({ navigation }: Props) => {
         )}
 
         {/* Change Password Button */}
-        <TouchableOpacity style={styles.outlineButton} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.outlineButton} activeOpacity={0.7} onPress={handleRequestChangePassword}>
           <Text style={styles.outlineButtonText}>Change password</Text>
         </TouchableOpacity>
 
-        {/* Office Articles Card */}
-        <TouchableOpacity style={styles.actionCard} activeOpacity={0.7}>
-          <View style={styles.actionIconBox}>
-            <Text style={styles.actionIconText}>O</Text>
-          </View>
-          <Text style={styles.actionCardText}>Office Articles</Text>
-          <Text style={styles.chevron}>›</Text>
-        </TouchableOpacity>
+        
 
         {/* Logout Button */}
         <TouchableOpacity style={styles.logoutButton} onPress={signOut} activeOpacity={0.7}>
@@ -142,6 +182,51 @@ const ProfileScreen = ({ navigation }: Props) => {
           Government of India · Ministry of Defence · v1.0.0
         </Text>
       </View>
+
+      {/* Change Password Modal */}
+      <Modal visible={passwordModalVisible} transparent animationType="slide">
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Change Password</Text>
+            {loading && !changeChallengeId ? (
+              <ActivityIndicator size="large" color={COLORS.primary} style={{ marginVertical: 20 }} />
+            ) : (
+              <>
+                <Text style={styles.modalSubtitle}>Enter the verification code sent to your registered contact.</Text>
+                <TextInput
+                  label="OTP"
+                  value={otp}
+                  onChangeText={setOtp}
+                  mode="outlined"
+                  style={styles.modalInput}
+                  keyboardType="number-pad"
+                  autoCapitalize="none"
+                />
+                <TextInput
+                  label="New Password"
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  mode="outlined"
+                  secureTextEntry
+                  style={styles.modalInput}
+                />
+                <TextInput
+                  label="Confirm Password"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  mode="outlined"
+                  secureTextEntry
+                  style={styles.modalInput}
+                />
+                <View style={styles.modalActions}>
+                  <Button mode="text" onPress={() => setPasswordModalVisible(false)} disabled={loading}>Cancel</Button>
+                  <Button mode="contained" onPress={handleSubmitChangePassword} loading={loading} disabled={loading}>Submit</Button>
+                </View>
+              </>
+            )}
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 };
@@ -343,6 +428,40 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 12,
     color: COLORS.textSecondary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    width: '85%',
+    borderRadius: 8,
+    padding: 20,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 16,
+  },
+  modalInput: {
+    marginBottom: 12,
+    backgroundColor: '#fff',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 16,
+    gap: 8,
   },
 });
 
