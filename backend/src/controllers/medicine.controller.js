@@ -48,10 +48,16 @@ async function enrichWithCreator(medicines) {
 }
 
 function resolveScope(user) {
+  if (user.role === 'admin' || user.role === 'superadmin') {
+    return {};
+  }
   return { createdBy: user.id };
 }
 
 async function verifyOwnership(med, user) {
+  if (user.role === 'admin' || user.role === 'superadmin') {
+    return true;
+  }
   if (med.createdBy === user.id) {
     return true;
   }

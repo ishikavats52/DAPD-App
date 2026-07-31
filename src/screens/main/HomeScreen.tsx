@@ -30,6 +30,7 @@ const HomeScreen = ({ navigation }: Props) => {
       {/* Top Header Row */}
       <View style={styles.headerRow}>
         <View style={styles.userInfoContainer}>
+          <Text style={styles.welcomeText} numberOfLines={1}>Welcome,</Text>
           <Text style={styles.userOfficeText} numberOfLines={1}>{user?.officeName || 'HQs'}</Text>
           <Text style={styles.userNameText} numberOfLines={1}>{user?.name || 'User'}</Text>
         </View>
@@ -77,44 +78,42 @@ const HomeScreen = ({ navigation }: Props) => {
           <View style={styles.whiteCardContainer}>
             
             <View style={styles.actionMenuContainer}>
-              {/* Scan Document */}
-              <TouchableOpacity style={styles.actionRow} activeOpacity={0.7} onPress={() => {
-                if(user?.role === 'superadmin') {
-                  Alert.alert('Unauthorized', 'Superadmins cannot scan documents.');
-                } else {
-                  navigation.navigate('AddArticle');
-                }
-              }}>
-                <View style={styles.actionIconContainer}>
-                  <Ionicons name="scan-outline" size={28} color="#FFF" />
-                </View>
-                <View style={styles.actionTextContainer}>
-                  <Text style={styles.actionTitle}>Scan Document</Text>
-                  <Text style={styles.actionSubtitle}>Scan Supply Order / BBQR using camera</Text>
-                </View>
-              </TouchableOpacity>
+              {user?.role !== 'superadmin' && (
+                <>
+                  {/* Scan Document */}
+                  <TouchableOpacity style={styles.actionRow} activeOpacity={0.7} onPress={() => navigation.navigate('AddArticle')}>
+                    <View style={styles.actionIconContainer}>
+                      <Ionicons name="scan-outline" size={28} color="#FFF" />
+                    </View>
+                    <View style={styles.actionTextContainer}>
+                      <Text style={styles.actionTitle}>Scan Document</Text>
+                      <Text style={styles.actionSubtitle}>Scan Supply Order / BBQR using camera</Text>
+                    </View>
+                  </TouchableOpacity>
 
-              {/* My Records */}
-              <TouchableOpacity style={styles.actionRow} activeOpacity={0.7} onPress={() => navigation.navigate('MyRecords')}>
-                <View style={styles.actionIconContainer}>
-                  <Ionicons name="document-text-outline" size={28} color="#FFF" />
-                </View>
-                <View style={styles.actionTextContainer}>
-                  <Text style={styles.actionTitle}>My Records</Text>
-                  <Text style={styles.actionSubtitle}>View & search scanned documents</Text>
-                </View>
-              </TouchableOpacity>
+                  {/* My Records */}
+                  <TouchableOpacity style={styles.actionRow} activeOpacity={0.7} onPress={() => navigation.navigate('MyRecords')}>
+                    <View style={styles.actionIconContainer}>
+                      <Ionicons name="document-text-outline" size={28} color="#FFF" />
+                    </View>
+                    <View style={styles.actionTextContainer}>
+                      <Text style={styles.actionTitle}>{user?.role === 'admin' ? 'All Records' : 'My Records'}</Text>
+                      <Text style={styles.actionSubtitle}>{user?.role === 'admin' ? 'View all scanned documents' : 'View & search scanned documents'}</Text>
+                    </View>
+                  </TouchableOpacity>
 
-              {/* Search */}
-              <TouchableOpacity style={styles.actionRow} activeOpacity={0.7} onPress={() => navigation.navigate('Search')}>
-                <View style={styles.actionIconContainer}>
-                  <Ionicons name="search-outline" size={28} color="#FFF" />
-                </View>
-                <View style={styles.actionTextContainer}>
-                  <Text style={styles.actionTitle}>Search</Text>
-                  <Text style={styles.actionSubtitle}>Search by keyword or rescan similar document</Text>
-                </View>
-              </TouchableOpacity>
+                  {/* Search */}
+                  <TouchableOpacity style={styles.actionRow} activeOpacity={0.7} onPress={() => navigation.navigate('Search')}>
+                    <View style={styles.actionIconContainer}>
+                      <Ionicons name="search-outline" size={28} color="#FFF" />
+                    </View>
+                    <View style={styles.actionTextContainer}>
+                      <Text style={styles.actionTitle}>Search</Text>
+                      <Text style={styles.actionSubtitle}>Search by keyword or rescan similar document</Text>
+                    </View>
+                  </TouchableOpacity>
+                </>
+              )}
 
               {/* Analytics */}
               <TouchableOpacity style={styles.actionRow} activeOpacity={0.7} onPress={() => navigation.navigate('MISReport')}>
@@ -127,8 +126,18 @@ const HomeScreen = ({ navigation }: Props) => {
                 </View>
               </TouchableOpacity>
 
-              {/* Dashboard */}
-             
+              {/* Audit Report */}
+              {user?.role === 'superadmin' && (
+                <TouchableOpacity style={styles.actionRow} activeOpacity={0.7} onPress={() => navigation.navigate('AuditLog')}>
+                  <View style={styles.actionIconContainer}>
+                    <Ionicons name="shield-checkmark-outline" size={28} color="#FFF" />
+                  </View>
+                  <View style={styles.actionTextContainer}>
+                    <Text style={styles.actionTitle}>Audit Report</Text>
+                    <Text style={styles.actionSubtitle}>Monitor login and user activity</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
             </View>
 
           </View>
@@ -158,13 +167,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 30 : 10,
-    paddingBottom: 10,
+    paddingBottom: 0,
     backgroundColor: NAVY_BLUE,
   },
   userInfoContainer: {
     flex: 1,
     marginRight: 16,
     justifyContent: 'center',
+  },
+  welcomeText: {
+    color: '#E2E8F0',
+    fontSize: 13,
+    fontWeight: '400',
+    marginBottom: 2,
   },
   userOfficeText: {
     color: GOLD,
@@ -186,17 +201,17 @@ const styles = StyleSheet.create({
   topBlueSection: {
     backgroundColor: NAVY_BLUE,
     alignItems: 'center',
-    paddingTop: 10,
+    paddingTop: 0,
     paddingBottom: 50,
     paddingHorizontal: 20,
   },
   emblem: {
     width: 60,
     height: 80,
-    marginBottom: 16,
+    marginBottom: 8,
   },
   dapdTitle: {
-    fontSize: 48,
+    fontSize: 40,
     fontWeight: '900',
     color: '#FFF',
     letterSpacing: 2,

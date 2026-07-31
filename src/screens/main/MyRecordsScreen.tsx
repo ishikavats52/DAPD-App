@@ -19,6 +19,9 @@ type Medicine = {
   quantity: string;
   totalValue?: string;
   createdAt: string;
+  creator?: {
+    name: string;
+  };
 };
 
 const NAVY_BLUE = '#0D2340';
@@ -81,6 +84,7 @@ const MyRecordsScreen = ({ navigation }: Props) => {
 
   const renderItem = ({ item }: { item: Medicine }) => {
     const price = item.totalValue ? `₹${item.totalValue}/unit` : 'N/A';
+    const scannerName = item.creator?.name || 'Unknown User';
 
     return (
       <Card
@@ -89,7 +93,12 @@ const MyRecordsScreen = ({ navigation }: Props) => {
         elevation={0}
       >
         <Card.Content>
-          <Text style={styles.cardTag}>Tag {item.tag || 'N/A'}</Text>
+          <View style={styles.cardHeaderRow}>
+            <Text style={styles.cardTag}>Tag {item.tag || 'N/A'}</Text>
+            {['admin', 'superadmin'].includes(user?.role || '') && (
+              <Text style={styles.scannerBadge}>By: {scannerName}</Text>
+            )}
+          </View>
           <Text style={styles.cardTitle} numberOfLines={1}>{item.nomenclature || 'Unknown Item'}</Text>
           <Text style={styles.cardSubtitle}>{item.quantity || 0} · {price}</Text>
         </Card.Content>
@@ -102,15 +111,11 @@ const MyRecordsScreen = ({ navigation }: Props) => {
       <StatusBar barStyle="light-content" backgroundColor={NAVY_BLUE} />
       <Appbar.Header style={styles.header}>
         <Appbar.BackAction onPress={() => navigation.goBack()} color="#FFF" />
-        <Appbar.Content title="My Records" titleStyle={styles.headerTitle} />
+        <Appbar.Content title={['admin', 'superadmin'].includes(user?.role || '') ? "All Records" : "My Records"} titleStyle={styles.headerTitle} />
       </Appbar.Header>
 
       <View style={styles.mainBackground}>
-        {user?.role === 'superadmin' ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Superadmins do not have records.</Text>
-          </View>
-        ) : loading ? (
+        {loading ? (
           <ActivityIndicator size="large" color={NAVY_BLUE} style={{ marginTop: 40 }} />
         ) : (
           <FlatList
@@ -170,11 +175,26 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     marginHorizontal: 16,
   },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  scannerBadge: {
+    fontSize: 11,
+    color: '#0055AA',
+    backgroundColor: '#E6F0FA',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    overflow: 'hidden',
+    fontWeight: 'bold',
+  },
   cardTag: {
     color: NAVY_BLUE,
     fontWeight: 'bold',
     fontSize: 12,
-    marginBottom: 6,
   },
   cardTitle: {
     fontSize: 15,
